@@ -112,3 +112,8 @@ def is_kvm_supported():
         return False
 
     return True
+
+
+def remove_file_without_check(path: str) -> None:
+    if os.path.exists(path):
+        os.remove(path)

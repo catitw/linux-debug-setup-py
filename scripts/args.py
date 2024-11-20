@@ -14,6 +14,18 @@ def parse_args():
         help="rebuild rootfs"
     )
 
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="clean linux"
+    )
+
+    parser.add_argument(
+        "--distclean",
+        action="store_true",
+        help="clean all"
+    )
+
     cached_args = parser.parse_args()
 
 
