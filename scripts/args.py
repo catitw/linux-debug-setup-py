@@ -29,5 +29,13 @@ def parse_args():
     cached_args = parser.parse_args()
 
 
-def rebuild_rootfs() -> bool:
+def rebuild_rootfs_set() -> bool:
     return cached_args.rebuild_rootfs  # type: ignore
+
+
+def clean_linux_set() -> bool:
+    return cached_args.clean  # type: ignore
+
+
+def distclean_set() -> bool:
+    return cached_args.distclean  # type: ignore

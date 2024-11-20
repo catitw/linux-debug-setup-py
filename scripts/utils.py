@@ -117,3 +117,26 @@ def is_kvm_supported():
 def remove_file_without_check(path: str) -> None:
     if os.path.exists(path):
         os.remove(path)
+
+
+class DirectoryCreationError(Exception):
+    """
+    Custom exception raised when there is an issue creating the directory.
+    """
+    pass
+
+
+def ensure_dir_exist(path: str) -> None:
+    try:
+        # Check if the directory exists
+        if not os.path.exists(path):
+            # Attempt to create the directory
+            os.makedirs(path)
+        else:
+            # Directory {path} already exists
+            pass
+    except PermissionError:
+        raise DirectoryCreationError(
+            f"Permission denied to create the directory: {path}")
+    except OSError as e:
+        raise DirectoryCreationError(f"Failed to create directory {path}: {e}")

@@ -13,7 +13,7 @@ class KernelState(State):
     DEFAULT_NOT_INIT = "default_not_init"
     SRC_CLONED = "src_cloned"
     SRC_CONFIGURED = "src_configured"
-    SRC_BUILT = "src_built"
+    # SRC_BUILT = "src_built"
 
 
 class KernelMachine:

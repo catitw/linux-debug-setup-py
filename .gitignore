@@ -14,3 +14,4 @@ venv/
 ### This Project ###
 .state/
 *.img
+/linux-*/
