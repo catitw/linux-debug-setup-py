@@ -1,0 +1,16 @@
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+venv/
+
+# ruff
+.ruff_cache/
+
+
+### This Project ###
+.state/
+*.img
