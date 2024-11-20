@@ -1,10 +1,9 @@
-
 from dataclasses import dataclass
 from enum import Enum
 
 
 class QemuImgFormat(Enum):
-    RAW = 1,
+    RAW = (1,)
     QCOW2 = 2
 
 
@@ -45,16 +44,12 @@ def get_kernel_config_opts() -> dict[str, KernelConfigOptValue]:
         "CONFIG_CC_OPTIMIZE_FOR_SIZE": N,
         "CONFIG_OPTIMIZE_INLINING": N,
         "CONFIG_FUNCTION_TRACER": N,
-
         # disable optimize on X86
         "CONFIG_X86_GENERICARCH": N,
-
         # initramfs
-        "CONFIG_BLK_DEV_INITRD": Y,
-        "CONFIG_DEVTMPFS": Y,
-        "CONFIG_DEVTMPFS_MOUNT": Y,
-
-
+        # "CONFIG_BLK_DEV_INITRD": Y,
+        # "CONFIG_DEVTMPFS": Y,
+        # "CONFIG_DEVTMPFS_MOUNT": Y,
         "CONFIG_BLK_DEV_RAM": M,
         "CONFIG_BLK_DEV_RAM_COUNT": IntOpt(16),
         "CONFIG_BLK_DEV_RAM_SIZE": IntOpt(65536),

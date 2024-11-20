@@ -4,6 +4,7 @@ import hashlib
 from tqdm import tqdm
 import os
 import platform
+import stat
 
 
 def download_file(url: str, save_path: str, desc: str) -> None:
@@ -22,8 +23,9 @@ def download_file(url: str, save_path: str, desc: str) -> None:
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with requests.get(url, stream=True) as response:
         response.raise_for_status()  # Raise HTTPError for bad responses
-        total_size = int(response.headers.get(
-            "content-length", 0))  # Get total file size
+        total_size = int(
+            response.headers.get("content-length", 0)
+        )  # Get total file size
         chunk_size = 8192  # 8 KB
 
         # Set up the progress bar
@@ -49,8 +51,7 @@ def get_remote_file_info(url: str) -> Tuple[int, str]:
     with requests.head(url) as response:
         response.raise_for_status()
         file_size = int(response.headers.get("content-length", 0))
-        etag = response.headers.get("etag", "").strip(
-            '"')  # Strip quotes if present
+        etag = response.headers.get("etag", "").strip('"')  # Strip quotes if present
         return file_size, etag
 
 
@@ -123,6 +124,7 @@ class DirectoryCreationError(Exception):
     """
     Custom exception raised when there is an issue creating the directory.
     """
+
     pass
 
 
@@ -137,6 +139,14 @@ def ensure_dir_exist(path: str) -> None:
             pass
     except PermissionError:
         raise DirectoryCreationError(
-            f"Permission denied to create the directory: {path}")
+            f"Permission denied to create the directory: {path}"
+        )
     except OSError as e:
         raise DirectoryCreationError(f"Failed to create directory {path}: {e}")
+
+
+def ensure_exectuable(path: str) -> None:
+    current_permissions = os.stat(path).st_mode
+    new_permissions = current_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+
+    os.chmod(path, new_permissions)

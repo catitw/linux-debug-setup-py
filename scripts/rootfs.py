@@ -1,7 +1,12 @@
 import pexpect
 from scripts.config import QemuImgFormat, get_rootfs_format
-from scripts.paths import get_archlinux_iso_path,  get_rootfs_img_path
-from scripts.utils import get_cpu_cores_minus_one, get_sha256_from_url, calculate_file_sha256, download_file
+from scripts.paths import get_archlinux_iso_path, get_rootfs_img_path
+from scripts.utils import (
+    get_cpu_cores_minus_one,
+    get_sha256_from_url,
+    calculate_file_sha256,
+    download_file,
+)
 import os
 import sys
 import subprocess
@@ -54,15 +59,15 @@ def ensure_iso_available(save_path: str):
             print("Checksum validation failed. Redownloading file.")
 
     # Download the ISO file
-    download_file(ISO_DOWNLOAD_URL, save_path,
-                  "Downloading archlinux-x86_64.iso")
+    download_file(ISO_DOWNLOAD_URL, save_path, "Downloading archlinux-x86_64.iso")
 
     # Verify the downloaded file
     print("Verifying downloaded file...")
     actual_checksum = calculate_file_sha256(save_path)
     if actual_checksum != expected_checksum:
         raise Exception(
-            "Downloaded file checksum does not match. File may be corrupted.")
+            "Downloaded file checksum does not match. File may be corrupted."
+        )
 
     print(f"File {save_path} is ready and verified.")
 
@@ -84,17 +89,13 @@ def reprpare_rootfs_img(path: str, size_GB: int) -> None:
     def create_qcow2():
         print(f"Creating a new QCOW2 image at {path} with size {size_GB}GB.")
         subprocess.run(
-            ["qemu-img", "create", "-f", "qcow2", path, f"{size_GB}G"],
-            check=True
+            ["qemu-img", "create", "-f", "qcow2", path, f"{size_GB}G"], check=True
         )
         print(f"QCOW2 image {path} created successfully.")
 
     def create_raw():
         print(f"Creating a new RAW image at {path} with size {size_GB}GB.")
-        subprocess.run(
-            ["qemu-img", "create", path, f"{size_GB}G"],
-            check=True
-        )
+        subprocess.run(["qemu-img", "create", path, f"{size_GB}G"], check=True)
         print(f"RAW image {path} created successfully.")
 
     # Step 2: Create a new image file of the specified size
@@ -121,19 +122,23 @@ def start_qemu():
     #   -cdrom ./archlinux.iso \
     #   -boot order=d \
     #   -nographic
+
+    img_format_str = (
+        ",format=qcow2" if get_rootfs_format() == QemuImgFormat.QCOW2 else ",format=raw"
+    )
+
     qemu_command = [
         "qemu-system-x86_64",
         "-cpu host",
         "-accel kvm",
         f"-smp {get_cpu_cores_minus_one()}",
         "-m 8G",
-        f"-drive file={get_rootfs_img_path()}" +  # NOTE: '+' instead of ','
-        ",format=qcow2" if get_rootfs_format() == QemuImgFormat.QCOW2 else "",
+        f"-drive file={get_rootfs_img_path()}" + img_format_str,
         f"-cdrom {get_archlinux_iso_path()}",
         "-boot order=d",
-        "-nographic"
+        "-nographic",
     ]
-    child = pexpect.spawn(" ".join(qemu_command), encoding='utf-8')
+    child = pexpect.spawn(" ".join(qemu_command), encoding="utf-8")
     child.logfile_read = sys.stdout
 
     return child
@@ -142,10 +147,11 @@ def start_qemu():
 def boot_to_console(child):
     """Boot Arch Linux to console."""
     child.expect("Automatic boot in")
-    child.send("\t")     # speical hack for tui mode
+    child.send("\t")  # speical hack for tui mode
 
-    run_command(child, "initrd=/arch/boot/x86_64/initramfs-linux.img",
-                " console=ttyS0,38400")
+    run_command(
+        child, "initrd=/arch/boot/x86_64/initramfs-linux.img", " console=ttyS0,38400"
+    )
 
     child.expect("Started.*OpenSSH Daemon")
     child.expect("Arch Linux")
@@ -191,8 +197,11 @@ def mount_disk(child):
 
 
 def setup_pacman_mirrorlist(child):
-    run_command(child, SHELL_PROMPT_RE,
-                "sed -i '1i Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist")
+    run_command(
+        child,
+        SHELL_PROMPT_RE,
+        "sed -i '1i Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist",
+    )
     run_command(child, SHELL_PROMPT_RE, "head -n 4 /etc/pacman.d/mirrorlist")
 
 
@@ -208,13 +217,15 @@ def install_base_system(child):
         "dhcpcd",
         "iwd",
         "vim",
-        "bash-completion"
+        "bash-completion",
     ]
 
-    run_command(child, SHELL_PROMPT_RE, "pacstrap /mnt " +
-                " ".join(pacstrap_install_packages))
-    run_command(child, SHELL_PROMPT_RE, "genfstab -U /mnt >> /mnt/etc/fstab",
-                timeout=None)  # we dont know when the last cmd `pacstrap` end
+    run_command(
+        child, SHELL_PROMPT_RE, "pacstrap /mnt " + " ".join(pacstrap_install_packages)
+    )
+    run_command(
+        child, SHELL_PROMPT_RE, "genfstab -U /mnt >> /mnt/etc/fstab", timeout=None
+    )  # we dont know when the last cmd `pacstrap` end
 
 
 def change_root(child):
@@ -223,21 +234,30 @@ def change_root(child):
 
 def configure_system(child):
     """Configure timezone, locale, hostname, and initramfs."""
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime")
+    run_command(
+        child,
+        CHANGE_ROOT_PROMPT_RE,
+        "ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime",
+    )
     run_command(child, CHANGE_ROOT_PROMPT_RE, "hwclock --systohc")
 
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "echo en_US.UTF-8 UTF-8 >> /etc/locale.gen")
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "echo zh_CN.UTF-8 UTF-8 >> /etc/locale.gen")
+    run_command(
+        child, CHANGE_ROOT_PROMPT_RE, "echo en_US.UTF-8 UTF-8 >> /etc/locale.gen"
+    )
+    run_command(
+        child, CHANGE_ROOT_PROMPT_RE, "echo zh_CN.UTF-8 UTF-8 >> /etc/locale.gen"
+    )
     run_command(child, CHANGE_ROOT_PROMPT_RE, "locale-gen")
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "echo LANG=en_US.UTF-8 > /etc/locale.conf")
+    run_command(
+        child, CHANGE_ROOT_PROMPT_RE, "echo LANG=en_US.UTF-8 > /etc/locale.conf"
+    )
 
     run_command(child, CHANGE_ROOT_PROMPT_RE, "echo arch-qemu > /etc/hostname")
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "echo -e '127.0.0.1  localhost\\n::1  localhost\\n127.0.1.1   arch-qemu' >> /etc/hosts")
+    run_command(
+        child,
+        CHANGE_ROOT_PROMPT_RE,
+        "echo -e '127.0.0.1  localhost\\n::1  localhost\\n127.0.1.1   arch-qemu' >> /etc/hosts",
+    )
 
 
 def set_root_password(child):
@@ -250,10 +270,12 @@ def set_root_password(child):
 
 def setup_grub(child):
     run_command(child, CHANGE_ROOT_PROMPT_RE, "pacman -S grub efibootmgr")
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB")
-    run_command(child, CHANGE_ROOT_PROMPT_RE,
-                "grub-mkconfig -o /boot/grub/grub.cfg")
+    run_command(
+        child,
+        CHANGE_ROOT_PROMPT_RE,
+        "grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB",
+    )
+    run_command(child, CHANGE_ROOT_PROMPT_RE, "grub-mkconfig -o /boot/grub/grub.cfg")
 
 
 def shutdown_system(child):
