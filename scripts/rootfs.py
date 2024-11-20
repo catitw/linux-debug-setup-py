@@ -1,5 +1,15 @@
 import pexpect
-from scripts.config import QemuImgFormat, get_rootfs_format
+from scripts.config import (
+    PartitionFormat,
+    QemuImgFormat,
+    PartitionFormatConfig,
+    get_archlinux_iso_sha256_url,
+    get_archlinux_iso_url,
+    get_img_root_passwd,
+    get_partitions,
+    get_rootfs_format,
+    get_rootfs_size_gb_ideal,
+)
 from scripts.paths import get_archlinux_iso_path, get_rootfs_img_path
 from scripts.utils import (
     get_cpu_cores_minus_one,
@@ -11,11 +21,6 @@ import os
 import sys
 import subprocess
 
-ISO_DOWNLOAD_URL = (
-    "https://mirrors.ustc.edu.cn/archlinux/iso/latest/archlinux-x86_64.iso"
-)
-
-SHA256SUMS_URL = "https://mirrors.ustc.edu.cn/archlinux/iso/latest/sha256sums.txt"
 
 SHELL_PROMPT_RE = ".*root.*@archiso.*~.*#"
 CHANGE_ROOT_PROMPT_RE = "[.*root.*@archiso.*]"
@@ -23,7 +28,7 @@ CHANGE_ROOT_PROMPT_RE = "[.*root.*@archiso.*]"
 
 def build_rootfs() -> None:
     ensure_iso_available(get_archlinux_iso_path())
-    reprpare_rootfs_img(get_rootfs_img_path(), 40)
+    reprpare_rootfs_img()
 
     child = start_qemu()
     boot_to_console(child)
@@ -39,12 +44,14 @@ def build_rootfs() -> None:
 
 
 def ensure_iso_available(save_path: str):
-    checksums = get_sha256_from_url(SHA256SUMS_URL)
+    iso_url = get_archlinux_iso_url()
+    sha256_url = get_archlinux_iso_sha256_url()
+
+    checksums = get_sha256_from_url(sha256_url)
     iso_filename = os.path.basename(save_path)
 
     if iso_filename not in checksums:
-        raise Exception(f"Checksum for {iso_filename} not found in {
-                        SHA256SUMS_URL}")
+        raise Exception(f"Checksum for {iso_filename} not found in { sha256_url}")
 
     expected_checksum = checksums[iso_filename]
 
@@ -59,7 +66,7 @@ def ensure_iso_available(save_path: str):
             print("Checksum validation failed. Redownloading file.")
 
     # Download the ISO file
-    download_file(ISO_DOWNLOAD_URL, save_path, "Downloading archlinux-x86_64.iso")
+    download_file(iso_url, save_path, "Downloading archlinux-x86_64.iso")
 
     # Verify the downloaded file
     print("Verifying downloaded file...")
@@ -72,7 +79,7 @@ def ensure_iso_available(save_path: str):
     print(f"File {save_path} is ready and verified.")
 
 
-def reprpare_rootfs_img(path: str, size_GB: int) -> None:
+def reprpare_rootfs_img() -> None:
     """
     Prepare a root filesystem image file by ensuring it doesn't exist and
     creating a new image depands on the format required.
@@ -81,21 +88,24 @@ def reprpare_rootfs_img(path: str, size_GB: int) -> None:
         path (str): The path where the QCOW2 image should be created.
         size_GB (int): The desired size of the image in GB.
     """
+    path = get_rootfs_img_path()
+    size_gb = get_rootfs_size_gb_ideal() + 1
+
     # Step 1: Check if the file exists, if so, delete it
     if os.path.exists(path):
         print(f"File {path} already exists. Deleting it.")
         os.remove(path)
 
     def create_qcow2():
-        print(f"Creating a new QCOW2 image at {path} with size {size_GB}GB.")
+        print(f"Creating a new QCOW2 image at {path} with size {size_gb}GB.")
         subprocess.run(
-            ["qemu-img", "create", "-f", "qcow2", path, f"{size_GB}G"], check=True
+            ["qemu-img", "create", "-f", "qcow2", path, f"{size_gb}G"], check=True
         )
         print(f"QCOW2 image {path} created successfully.")
 
     def create_raw():
-        print(f"Creating a new RAW image at {path} with size {size_GB}GB.")
-        subprocess.run(["qemu-img", "create", path, f"{size_GB}G"], check=True)
+        print(f"Creating a new RAW image at {path} with size {size_gb}GB.")
+        subprocess.run(["qemu-img", "create", path, f"{size_gb}G"], check=True)
         print(f"RAW image {path} created successfully.")
 
     # Step 2: Create a new image file of the specified size
@@ -162,38 +172,46 @@ def boot_to_console(child):
 def format_disk_ext4(child):
     """Partition and format the disk."""
     FDISK_PROMPT_RE = "Command.*(m.*for.*help)"
+    partition_conf = get_partitions()
 
     run_command(child, SHELL_PROMPT_RE, "fdisk /dev/sda")
 
     run_command(child, FDISK_PROMPT_RE, "g")
 
-    # /dev/sda1: 4G
-    run_command(child, FDISK_PROMPT_RE, "n")
-    run_command(child, "Partition number \\(1-.*, default 1\\):", "")
-    run_command(child, "First sector \\(.*-.*, default .*\\):", "")
-    run_command(child, "Last sector", "+4G")  # mksure we have 4G at least
+    # alloc size
+    def do_partition(i: int, s: int):
+        run_command(child, FDISK_PROMPT_RE, "n")
+        run_command(child, f"Partition number \\({i}-.*, default {i}\\):", "")
+        run_command(child, "First sector \\(.*-.*, default .*\\):", "")
+        run_command(child, "Last sector", f"+{s}G")
 
-    # /dev/sda2: rest
-    run_command(child, FDISK_PROMPT_RE, "n")
-    run_command(child, "Partition number \\(2-.*, default 2\\):", "")
-    run_command(child, "First sector \\(.*-.*, default .*\\):", "")
-    run_command(child, "Last sector", "")
+    for i, c in enumerate(partition_conf, start=1):
+        do_partition(i, c.size_gb)
 
     # save partition
     run_command(child, FDISK_PROMPT_RE, "w")
 
+    def do_mkfs(n: int, c: PartitionFormat):
+        run_command(child, SHELL_PROMPT_RE, f"mkfs.{c.value} /dev/sda{n}")
+
+    for i, c in enumerate(partition_conf, start=1):
+        do_mkfs(i, c.format)
+
     # for check
     run_command(child, SHELL_PROMPT_RE, "fdisk -l /dev/sda")
 
-    # setup fs
-    run_command(child, SHELL_PROMPT_RE, "mkfs.vfat /dev/sda1")
-    run_command(child, SHELL_PROMPT_RE, "mkfs.ext4 /dev/sda2")
-
 
 def mount_disk(child):
-    run_command(child, SHELL_PROMPT_RE, "mount /dev/sda2 /mnt")
-    run_command(child, SHELL_PROMPT_RE, "mkdir /mnt/efi")
-    run_command(child, SHELL_PROMPT_RE, "mount /dev/sda1 /mnt/efi")
+    partition_conf = get_partitions()
+    partition_conf.sort(key=lambda x: len(x.mount_point))  # make sure "/" mount first
+
+    for i, c in enumerate(partition_conf, start=1):
+        run_command(child, SHELL_PROMPT_RE, f"mkdir -p /mnt/{c.mount_point}")
+        run_command(
+            child,
+            SHELL_PROMPT_RE,
+            f"mount /dev/sda{i} /mnt/{c.mount_point}",
+        )
 
 
 def setup_pacman_mirrorlist(child):
@@ -262,9 +280,11 @@ def configure_system(child):
 
 def set_root_password(child):
     """Set the root password."""
+    root_passwd = get_img_root_passwd()
+
     run_command(child, CHANGE_ROOT_PROMPT_RE, "passwd root")
-    run_command(child, "New password: ", "1")
-    run_command(child, "Retype new password: ", "1")
+    run_command(child, "New password: ", root_passwd)
+    run_command(child, "Retype new password: ", root_passwd)
     run_command(child, CHANGE_ROOT_PROMPT_RE, "")
 
 

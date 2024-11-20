@@ -4,5 +4,6 @@ idna==3.10
 pexpect==4.9.0
 ptyprocess==0.7.0
 requests==2.32.3
+toml==0.10.2
 tqdm==4.67.0
 urllib3==2.2.3

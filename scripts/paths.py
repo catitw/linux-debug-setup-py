@@ -1,5 +1,7 @@
 import os
 
+from scripts.config import get_kernel_version
+
 
 def get_state_dir() -> str:
     return os.path.abspath(".state")
@@ -17,16 +19,12 @@ def get_rootfs_img_path() -> str:
     return os.path.abspath("./archlinux.img")
 
 
-def get_linux_version() -> str:
-    return "6.10"
-
-
 def get_linux_src_dir() -> str:
-    return os.path.abspath(f"./linux-{get_linux_version()}")
+    return os.path.abspath(f"./linux-{get_kernel_version()}")
 
 
 def get_linux_build_dir() -> str:
-    return os.path.abspath(f"./linux-build-{get_linux_version()}")
+    return os.path.abspath(f"./linux-build-{get_kernel_version()}")
 
 
 def get_linux_config_script_path() -> str:

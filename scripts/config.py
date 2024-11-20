@@ -1,14 +1,114 @@
 from dataclasses import dataclass
 from enum import Enum
+import sys
+import toml
+import os
+
+
+cached_rootfs_config = None
+cached_kernel_config = None
+
+
+def parse_config() -> None:
+    global cached_rootfs_config, cached_kernel_config
+
+    # Load and parse the TOML file
+    with open(os.path.abspath("config.toml"), "r") as f:
+        parsed_toml = toml.load(f)
+
+    # Parse rootfs section
+    rootfs_section = parsed_toml["rootfs"]
+
+    # Validate 'format' field with fallback to qcow2 on error
+    format_value = rootfs_section["format"]
+    try:
+        rootfs_format = QemuImgFormat(format_value)
+    except ValueError:
+        # Log warning and use default format qcow2
+        print(
+            f"Invalid format '{format_value}' config for qemu img found. Using default 'qcow2'.",
+            file=sys.stderr,
+        )
+        rootfs_format = QemuImgFormat.QCOW2
+
+    # Parse partitions and validate PartitionFormat
+    partitions = []
+    root_count = 0
+    for partition in rootfs_section["partitions"]:
+        partition_format = PartitionFormat(partition["format"])  # Validate the format
+        mount_point = partition["mount_point"]
+
+        if not os.path.isabs(mount_point):
+            raise ValueError(f"Mount point {mount_point} is not an absolute path.")
+
+        if mount_point == "/":
+            root_count += 1
+
+        partition_config = PartitionFormatConfig(
+            format=partition_format,
+            size_gb=int(partition["size_gb"]),
+            mount_point=mount_point,
+        )
+        partitions.append(partition_config)
+
+    if root_count != 1:
+        raise ValueError("There must be exactly one mount point with '/'.")
+
+    cached_rootfs_config = RootfsConfig(
+        archlinux_iso_url=rootfs_section["archlinux_iso_url"],
+        archlinux_iso_sha256_url=rootfs_section["archlinux_iso_sha256_url"],
+        format=rootfs_format,
+        root_passwd=rootfs_section["root_passwd"],
+        partitions=partitions,
+    )
+
+    # Parse kernel section
+    kernel_section = parsed_toml["kernel"]
+    kernel_configure_overlay = {}
+
+    for key, value in kernel_section["configure_overlay"].items():
+        if value == "Y":
+            kernel_configure_overlay[key] = KernelConfigOptYNM.Y
+        elif value == "N":
+            kernel_configure_overlay[key] = KernelConfigOptYNM.N
+        elif value == "M":
+            kernel_configure_overlay[key] = KernelConfigOptYNM.M
+        elif isinstance(value, str):
+            kernel_configure_overlay[key] = KernelConfigOptStr(value)
+        elif isinstance(value, int):
+            kernel_configure_overlay[key] = KernelConfigOptNum(value)
+
+    cached_kernel_config = KernelConfig(
+        version=kernel_section["version"],
+        kernel_git_repo_url=kernel_section["kernel_git_repo_url"],
+        configure_overlay=kernel_configure_overlay,
+    )
 
 
 class QemuImgFormat(Enum):
-    RAW = (1,)
-    QCOW2 = 2
+    RAW = "raw"
+    QCOW2 = "qcow2"
 
 
-def get_rootfs_format() -> QemuImgFormat:
-    return QemuImgFormat.QCOW2
+class PartitionFormat(Enum):
+    VFAT = "vfat"
+    EXT4 = "ext4"
+
+
+@dataclass
+class PartitionFormatConfig:
+    format: PartitionFormat
+    size_gb: int
+    mount_point: str
+
+
+@dataclass
+class RootfsConfig:
+    archlinux_iso_url: str
+    archlinux_iso_sha256_url: str
+    format: QemuImgFormat
+    root_passwd: str
+    partitions: list[PartitionFormatConfig]
 
 
 class KernelConfigOptYNM(Enum):
@@ -27,50 +127,47 @@ class KernelConfigOptNum:
     val: int
 
 
-KernelConfigOptValue = KernelConfigOptYNM | KernelConfigOptStr | KernelConfigOptNum  # noqa: E501
+KernelConfigOptValue = KernelConfigOptYNM | KernelConfigOptStr | KernelConfigOptNum
+
+
+@dataclass
+class KernelConfig:
+    version: str
+    kernel_git_repo_url: str
+    configure_overlay: dict[str, KernelConfigOptValue]
+
+
+def get_archlinux_iso_url() -> str:
+    return cached_rootfs_config.archlinux_iso_url  # type: ignore
+
+
+def get_archlinux_iso_sha256_url() -> str:
+    return cached_rootfs_config.archlinux_iso_sha256_url  # type: ignore
+
+
+def get_rootfs_format() -> QemuImgFormat:
+    return cached_rootfs_config.format  # type: ignore
+
+
+def get_partitions() -> list[PartitionFormatConfig]:
+    return cached_rootfs_config.partitions  # type: ignore
+
+
+def get_rootfs_size_gb_ideal() -> int:
+    return sum(partition.size_gb for partition in get_partitions())
+
+
+def get_img_root_passwd() -> str:
+    return cached_rootfs_config.root_passwd  # type: ignore
+
+
+def get_kernel_version() -> str:
+    return cached_kernel_config.version  # type: ignore
+
+
+def get_kernel_git_repo() -> str:
+    return cached_kernel_config.kernel_git_repo_url  # type: ignore
 
 
 def get_kernel_config_opts() -> dict[str, KernelConfigOptValue]:
-    Y = KernelConfigOptYNM.Y
-    N = KernelConfigOptYNM.N
-    M = KernelConfigOptYNM.M
-
-    # StrOpt = KernelConfigOptStr
-    IntOpt = KernelConfigOptNum
-
-    return {
-        # disable optimize
-        "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE": N,
-        "CONFIG_CC_OPTIMIZE_FOR_SIZE": N,
-        "CONFIG_OPTIMIZE_INLINING": N,
-        "CONFIG_FUNCTION_TRACER": N,
-        # disable optimize on X86
-        "CONFIG_X86_GENERICARCH": N,
-        # initramfs
-        # "CONFIG_BLK_DEV_INITRD": Y,
-        # "CONFIG_DEVTMPFS": Y,
-        # "CONFIG_DEVTMPFS_MOUNT": Y,
-        "CONFIG_BLK_DEV_RAM": M,
-        "CONFIG_BLK_DEV_RAM_COUNT": IntOpt(16),
-        "CONFIG_BLK_DEV_RAM_SIZE": IntOpt(65536),
-        "CONFIG_DEBUG_INFO": Y,
-        "CONFIG_AS_HAS_NON_CONST_LEB128": Y,
-        "CONFIG_DEBUG_INFO_NONE": N,
-        "CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT": N,
-        "CONFIG_DEBUG_INFO_DWARF4": N,
-        "CONFIG_DEBUG_INFO_DWARF5": Y,
-        "CONFIG_RANDOMIZE_BASE": N,
-        "CONFIG_DEBUG_INFO_REDUCED": N,
-        "CONFIG_DEBUG_INFO_COMPRESSED_NONE": Y,
-        "CONFIG_DEBUG_INFO_COMPRESSED_ZLIB": Y,
-        "CONFIG_DEBUG_INFO_COMPRESSED_ZSTD": N,
-        "CONFIG_DEBUG_INFO_SPLIT": N,
-        "CONFIG_GDB_SCRIPTS": Y,
-        "CONFIG_FRAME_WARN": IntOpt(2048),
-        "CONFIG_STRIP_ASM_SYMS": N,
-        "CONFIG_READABLE_ASM": N,
-        "CONFIG_HEADERS_INSTALL": N,
-        "CONFIG_DEBUG_SECTION_MISMATCH": N,
-        "CONFIG_SECTION_MISMATCH_WARN_ONLY": Y,
-        "CONFIG_DEBUG_FORCE_WEAK_PER_CPU": N,
-    }
+    return cached_kernel_config.configure_overlay  # type: ignore

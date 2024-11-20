@@ -8,7 +8,11 @@ from scripts.paths import (
     get_vmlinux_path,
     get_vscode_launch_path,
 )
-from scripts.utils import ensure_dir_exist, ensure_exectuable
+from scripts.utils import (
+    dev_partition_contains_root,
+    ensure_dir_exist,
+    ensure_exectuable,
+)
 import os
 
 
@@ -74,7 +78,7 @@ qemu-system-x86_64 \
     -m 4G \
     -drive file={rootFsPath},format={rootFsFormat} \
     -kernel {bzImagePath} \
-    -append "root=/dev/sda2 rw console=ttyS0 nokaslr" \
+    -append "root={rootPartition} rw console=ttyS0 nokaslr" \
 """.lstrip("\n")
 
 KVM_APPEND = r"""
@@ -123,6 +127,7 @@ def gen_run_qemu_sh() -> None:
                 rootFsPath=get_rootfs_img_path(),
                 rootFsFormat=format_str,
                 bzImagePath=get_bzimage_path(),
+                rootPartition=dev_partition_contains_root(),
             )
         )
 
@@ -142,6 +147,7 @@ def gen_run_qemu_debug_sh() -> None:
                 rootFsPath=get_rootfs_img_path(),
                 rootFsFormat=format_str,
                 bzImagePath=get_bzimage_path(),
+                rootPartition=dev_partition_contains_root(),
             )
         )
 

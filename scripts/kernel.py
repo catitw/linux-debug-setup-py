@@ -4,12 +4,13 @@ from scripts.config import (
     KernelConfigOptStr,
     KernelConfigOptNum,
     get_kernel_config_opts,
+    get_kernel_git_repo,
+    get_kernel_version,
 )
 from scripts.paths import (
     get_linux_build_dir,
     get_linux_config_script_path,
     get_linux_src_dir,
-    get_linux_version,
     get_linux_build_config_path,
 )
 import os
@@ -17,8 +18,6 @@ import subprocess
 
 from scripts.state import KernelMachine, KernelState
 from scripts.utils import get_cpu_cores_minus_one
-
-LINUX_GIT_REPO_URL = "https://mirrors.ustc.edu.cn/linux.git"
 
 
 def build_bzImage() -> None:
@@ -41,11 +40,11 @@ def prepare_source() -> None:
 
         subprocess.run(["git", "init", linux_src], check=True)
         run_under_source_dir_checked(
-            ["git", "remote", "add", "origin", LINUX_GIT_REPO_URL],
+            ["git", "remote", "add", "origin", get_kernel_git_repo()],
         )
 
     run_under_source_dir_checked(
-        ["git", "fetch", "--depth", "1", "origin", f"v{get_linux_version()}"],
+        ["git", "fetch", "--depth", "1", "origin", f"v{get_kernel_version()}"],
     )
 
     run_under_source_dir_checked(
@@ -127,6 +126,13 @@ def build_source() -> None:
         cwd=linux_src,
         check=True,
     )
+
+
+def linux_make_source() -> None:
+    linux_build = get_linux_build_dir()
+    jobs = get_cpu_cores_minus_one()
+
+    run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "clean"])
 
 
 def run_under_source_dir_checked(cmds: list[str]) -> None:

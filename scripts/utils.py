@@ -6,6 +6,8 @@ import os
 import platform
 import stat
 
+from scripts.config import get_partitions
+
 
 def download_file(url: str, save_path: str, desc: str) -> None:
     """
@@ -150,3 +152,16 @@ def ensure_exectuable(path: str) -> None:
     new_permissions = current_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
 
     os.chmod(path, new_permissions)
+
+
+def dev_partition_contains_root() -> str:
+    """
+    e.g. "/dev/sda1"
+    """
+    partition_conf = get_partitions()
+
+    for i, c in enumerate(partition_conf, start=1):
+        if c.mount_point == "/":
+            return f"/dev/sda{i}"
+
+    raise ValueError("No root partition found")
