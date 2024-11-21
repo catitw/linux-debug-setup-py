@@ -52,9 +52,6 @@ def parse_config() -> None:
         )
         partitions.append(partition_config)
 
-    # make sure "/" mount first
-    partitions.sort(key=lambda x: len(x.mount_point))
-
     if root_count != 1:
         raise ValueError("There must be exactly one mount point with '/'.")
 

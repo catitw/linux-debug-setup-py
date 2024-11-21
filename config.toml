@@ -1,6 +1,6 @@
 [rootfs]
-archlinux_iso_url = "https://mirrors.ustc.edu.cn/archlinux/iso/latest/archlinux-x86_64.iso"
-archlinux_iso_sha256_url = "https://mirrors.ustc.edu.cn/archlinux/iso/latest/sha256sums.txt"
+archlinux_iso_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/2024.10.01/archlinux-x86_64.iso"
+archlinux_iso_sha256_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/2024.10.01/sha256sums.txt"
 format = "qcow2"
 root_passwd = "1"
 
@@ -22,7 +22,7 @@ ovmf_vars_fd_path_copy_from = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
 boot_mode = "UEFI"                                                  # UEFI or BIOS
 smp = 1
 memory_gb = 4                                                       # unit GB
-kvm_support = true
+kvm_support = false
 
 [qemu.tcp_port_forward]
 # host : guest(qemu)

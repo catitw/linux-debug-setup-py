@@ -24,7 +24,6 @@ from scripts.template import uefi_boot_mode_args
 from scripts.utils import (
     calculate_file_sha256,
     download_file,
-    get_cpu_cores_minus_one,
     get_sha256_from_url,
 )
 
@@ -38,10 +37,11 @@ def build_rootfs() -> None:
 
     child = start_qemu()
     boot_to_console(child)
+    disable_reflector_service(child, SHELL_PROMPT_RE)
     check_uefi(child)
     format_disk_ext4(child)
     mount_disk(child)
-    setup_pacman_mirrorlist(child)
+    setup_pacman_mirrorlist(child, SHELL_PROMPT_RE)
     install_base_system(child)
     change_root(child)
     configure_system(child)
@@ -189,10 +189,14 @@ def boot_to_console(child):
         child.send("\n")
 
     # normal terminal now
-    child.expect("Started.*OpenSSH Daemon")
+    child.expect("Started.*OpenSSH Daemon", timeout=60)
     child.expect("Arch Linux")
     run_command(child, "login", "root")
     run_command(child, SHELL_PROMPT_RE, "")  # Wait for prompt
+
+
+def disable_reflector_service(child, prompt: str):
+    run_command(child, prompt, "systemctl stop reflector.service")
 
 
 def check_uefi(child):
@@ -234,10 +238,14 @@ def format_disk_ext4(child):
 def mount_disk(child):
     partition_conf = get_partitions()
 
-    for i, c in enumerate(partition_conf, start=1):
+    conf_order_list = [(c, i) for i, c in enumerate(partition_conf, start=1)]
+    conf_order_list.sort(key=lambda x: len(x[0].mount_point))
+
+    for c, i in conf_order_list:
         if c.mount_point != "/":
             # do not touch "/mnt" dir in the iso file
             run_command(child, SHELL_PROMPT_RE, f"mkdir -p /mnt{c.mount_point}")
+
         run_command(
             child,
             SHELL_PROMPT_RE,
@@ -245,13 +253,27 @@ def mount_disk(child):
         )
 
 
-def setup_pacman_mirrorlist(child):
+def setup_pacman_mirrorlist(child, prompt: str):
     run_command(
         child,
-        SHELL_PROMPT_RE,
+        prompt,
         "sed -i '1i Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist",
     )
-    run_command(child, SHELL_PROMPT_RE, "head -n 4 /etc/pacman.d/mirrorlist")
+
+    run_command(
+        child,
+        prompt,
+        r"sed -i 's/#\?\(ParallelDownloads = \).*/\1{Parallel}/g' /etc/pacman.conf".format(
+            Parallel=2
+        ),
+    )
+
+    run_command(child, prompt, "head -n 2 /etc/pacman.d/mirrorlist")
+    run_command(
+        child,
+        prompt,
+        "cat /etc/pacman.conf | head -n 38 | tail -n +35",
+    )
 
 
 def install_base_system(child):
@@ -270,15 +292,30 @@ def install_base_system(child):
     ]
 
     run_command(
+        child,
+        SHELL_PROMPT_RE,
+        "sed 's/SigLevel = .*/SigLevel = Optional TrustAll/g' /etc/pacman.conf | tee /etc/pacman.conf",
+    )
+
+    run_command(
         child, SHELL_PROMPT_RE, "pacstrap /mnt " + " ".join(pacstrap_install_packages)
     )
+
     run_command(
-        child, SHELL_PROMPT_RE, "genfstab -U /mnt >> /mnt/etc/fstab", timeout=None
+        child,
+        SHELL_PROMPT_RE,
+        "sed 's/SigLevel = .*/SigLevel = Required DatabaseOptional/g' /etc/pacman.conf | tee /etc/pacman.conf",
+        timeout=None,
+    )
+
+    run_command(
+        child, SHELL_PROMPT_RE, "genfstab -U /mnt >> /mnt/etc/fstab"
     )  # we dont know when the last cmd `pacstrap` end
 
 
 def change_root(child):
     run_command(child, SHELL_PROMPT_RE, "arch-chroot /mnt")
+    disable_reflector_service(child, CHANGE_ROOT_PROMPT_RE)
 
 
 def configure_system(child):
@@ -308,6 +345,8 @@ def configure_system(child):
         "echo -e '127.0.0.1  localhost\\n::1  localhost\\n127.0.1.1   arch-qemu' >> /etc/hosts",
     )
 
+    setup_pacman_mirrorlist(child, CHANGE_ROOT_PROMPT_RE)
+
 
 def set_root_password(child):
     """Set the root password."""
@@ -320,12 +359,14 @@ def set_root_password(child):
 
 
 def setup_grub(child):
-    run_command(child, CHANGE_ROOT_PROMPT_RE, "pacman -S grub efibootmgr")
+    run_command(child, CHANGE_ROOT_PROMPT_RE, "pacman -Sy --noconfirm grub efibootmgr")
     run_command(
         child,
         CHANGE_ROOT_PROMPT_RE,
         "grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB",
+        timeout=None,
     )
+
     run_command(child, CHANGE_ROOT_PROMPT_RE, "grub-mkconfig -o /boot/grub/grub.cfg")
 
 

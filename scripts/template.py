@@ -139,6 +139,14 @@ def uefi_boot_mode_args() -> list[str]:
     """
     helper function to start qemu when building rootfs
     """
+
+    boot_mode = get_qemu_boot_mode()
+    ovmf_vars_path = get_ovmf_vars_path()
+
+    # copy OVMF_VARS
+    if boot_mode == QemuBootMode.UEFI:
+        shutil.copy(get_ovmf_vars_fd_path_copy_from(), ovmf_vars_path)
+
     return [
         "-drive if=pflash,format=raw,readonly=on,file={ovmfCodePath}".format(
             ovmfCodePath=get_ovmf_code_fd_path()
