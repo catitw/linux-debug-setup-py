@@ -26,10 +26,13 @@ def build_bzImage() -> None:
 
     match cur_state_when_begin:
         case KernelState.DEFAULT_NOT_INIT:
+            print("build kernel start with `clone source`")
             prepare_source()
         case KernelState.SRC_CLONED:
+            print("build kernel start with `configure source`")
             configure_source()
         case KernelState.SRC_CONFIGURED:
+            print("build kernel start with `build source`")
             build_source()
 
 

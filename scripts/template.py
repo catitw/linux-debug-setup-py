@@ -46,7 +46,7 @@ def gen_vscode_launch_json() -> None:
       "miDebuggerServerAddress": "localhost:1234",
       "args": [],
       "stopAtEntry": true,
-      "cwd": "${workspaceFolder}",
+      "cwd": "{workspaceFolder}",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",

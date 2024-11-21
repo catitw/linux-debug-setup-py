@@ -10,14 +10,17 @@ from scripts.paths import (
     get_rootfs_img_path,
     get_state_dir,
 )
+from scripts.state import KernelMachine, KernelState
 from scripts.utils import remove_file_without_check
 
 
 def clean_linux():
     if os.path.exists(get_linux_src_dir()):
         linux_make_source()
+        KernelMachine.set_state(KernelState.SRC_CLONED)
     else:
         print("linux source directory not found! `make clean` skipped", file=sys.stderr)
+        KernelMachine.clear_state()
 
 
 def distclean():
