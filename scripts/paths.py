@@ -53,3 +53,7 @@ def get_vmlinux_path() -> str:
 
 def get_bzimage_path() -> str:
     return f"{get_linux_build_dir()}/arch/x86_64/boot/bzImage"
+
+
+def get_ovmf_vars_path() -> str:
+    return f"{get_state_dir()}/OVMF_VARS.4m.fd"

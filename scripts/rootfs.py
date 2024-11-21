@@ -1,26 +1,32 @@
+import os
+import subprocess
+import sys
+
 import pexpect
+
 from scripts.config import (
     PartitionFormat,
+    QemuBootMode,
     QemuImgFormat,
-    PartitionFormatConfig,
     get_archlinux_iso_sha256_url,
     get_archlinux_iso_url,
     get_img_root_passwd,
     get_partitions,
+    get_qemu_boot_mode,
+    get_qemu_kvm_support,
+    get_qemu_memory_gb,
+    get_qemu_smp,
     get_rootfs_format,
     get_rootfs_size_gb_ideal,
 )
 from scripts.paths import get_archlinux_iso_path, get_rootfs_img_path
+from scripts.template import uefi_boot_mode_args
 from scripts.utils import (
-    get_cpu_cores_minus_one,
-    get_sha256_from_url,
     calculate_file_sha256,
     download_file,
+    get_cpu_cores_minus_one,
+    get_sha256_from_url,
 )
-import os
-import sys
-import subprocess
-
 
 SHELL_PROMPT_RE = ".*root.*@archiso.*~.*#"
 CHANGE_ROOT_PROMPT_RE = "[.*root.*@archiso.*]"
@@ -32,6 +38,7 @@ def build_rootfs() -> None:
 
     child = start_qemu()
     boot_to_console(child)
+    check_uefi(child)
     format_disk_ext4(child)
     mount_disk(child)
     setup_pacman_mirrorlist(child)
@@ -137,17 +144,25 @@ def start_qemu():
         ",format=qcow2" if get_rootfs_format() == QemuImgFormat.QCOW2 else ",format=raw"
     )
 
-    qemu_command = [
-        "qemu-system-x86_64",
-        "-cpu host",
-        "-accel kvm",
-        f"-smp {get_cpu_cores_minus_one()}",
-        "-m 8G",
+    qemu_command = ["qemu-system-x86_64"]
+    if get_qemu_kvm_support():
+        qemu_command += [
+            "-cpu host",
+            "-accel kvm",
+        ]
+    qemu_command += [
+        f"-smp {get_qemu_smp()}",
+        f"-m {get_qemu_memory_gb()}G",
         f"-drive file={get_rootfs_img_path()}" + img_format_str,
         f"-cdrom {get_archlinux_iso_path()}",
         "-boot order=d",
         "-nographic",
     ]
+    if get_qemu_boot_mode() == QemuBootMode.BIOS:
+        pass
+    else:
+        qemu_command += uefi_boot_mode_args()
+
     child = pexpect.spawn(" ".join(qemu_command), encoding="utf-8")
     child.logfile_read = sys.stdout
 
@@ -156,17 +171,32 @@ def start_qemu():
 
 def boot_to_console(child):
     """Boot Arch Linux to console."""
-    child.expect("Automatic boot in")
-    child.send("\t")  # speical hack for tui mode
 
-    run_command(
-        child, "initrd=/arch/boot/x86_64/initramfs-linux.img", " console=ttyS0,38400"
-    )
+    # we are now in TUI mode
+    if get_qemu_boot_mode() == QemuBootMode.BIOS:
+        child.expect("Automatic boot in")
+        child.send("\t")
+        run_command(
+            child,
+            "initrd=/arch/boot/x86_64/initramfs-linux.img",
+            " console=ttyS0,38400",
+        )
+    else:
+        child.expect("Boot in.*s")
+        child.send("e")
+        child.expect("archisobasedir")
+        child.send("console=ttyS0,38400 ")
+        child.send("\n")
 
+    # normal terminal now
     child.expect("Started.*OpenSSH Daemon")
     child.expect("Arch Linux")
     run_command(child, "login", "root")
     run_command(child, SHELL_PROMPT_RE, "")  # Wait for prompt
+
+
+def check_uefi(child):
+    run_command(child, SHELL_PROMPT_RE, "ls /sys/firmware/efi/efivars | head -n 4")
 
 
 def format_disk_ext4(child):
@@ -203,14 +233,15 @@ def format_disk_ext4(child):
 
 def mount_disk(child):
     partition_conf = get_partitions()
-    partition_conf.sort(key=lambda x: len(x.mount_point))  # make sure "/" mount first
 
     for i, c in enumerate(partition_conf, start=1):
-        run_command(child, SHELL_PROMPT_RE, f"mkdir -p /mnt/{c.mount_point}")
+        if c.mount_point != "/":
+            # do not touch "/mnt" dir in the iso file
+            run_command(child, SHELL_PROMPT_RE, f"mkdir -p /mnt{c.mount_point}")
         run_command(
             child,
             SHELL_PROMPT_RE,
-            f"mount /dev/sda{i} /mnt/{c.mount_point}",
+            f"mount /dev/sda{i} /mnt{c.mount_point}",
         )
 
 

@@ -16,6 +16,23 @@ size_gb = 36
 format = "ext4"
 mount_point = "/"
 
+[qemu]
+ovmf_code_fd_path = "/usr/share/edk2/x64/OVMF_CODE.4m.fd"
+ovmf_vars_fd_path_copy_from = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
+boot_mode = "UEFI"                                                  # UEFI or BIOS
+smp = 1
+memory_gb = 4                                                       # unit GB
+kvm_support = true
+
+[qemu.tcp_port_forward]
+# host : guest(qemu)
+2222 = 22
+18000 = 8000
+18001 = 8001
+18002 = 8002
+18003 = 8003
+18004 = 8004
+
 
 [kernel]
 version = "6.10"
@@ -30,6 +47,9 @@ CONFIG_FUNCTION_TRACER = "N"
 
 # disable optimize on X86
 CONFIG_X86_GENERICARCH = "N"
+
+# EFI
+EFI_BOOTLOADER_CONTROL = "M"
 
 # initramfs
 CONFIG_BLK_DEV_INITRD = "Y"

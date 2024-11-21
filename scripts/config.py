@@ -1,16 +1,17 @@
+import os
+import sys
 from dataclasses import dataclass
 from enum import Enum
-import sys
-import toml
-import os
 
+import toml
 
 cached_rootfs_config = None
+cached_qemu_config = None
 cached_kernel_config = None
 
 
 def parse_config() -> None:
-    global cached_rootfs_config, cached_kernel_config
+    global cached_rootfs_config, cached_qemu_config, cached_kernel_config
 
     # Load and parse the TOML file
     with open(os.path.abspath("config.toml"), "r") as f:
@@ -33,7 +34,7 @@ def parse_config() -> None:
 
     # Parse partitions and validate PartitionFormat
     partitions = []
-    root_count = 0
+    root_count = 0  # only one "/" mount point allowed
     for partition in rootfs_section["partitions"]:
         partition_format = PartitionFormat(partition["format"])  # Validate the format
         mount_point = partition["mount_point"]
@@ -51,6 +52,9 @@ def parse_config() -> None:
         )
         partitions.append(partition_config)
 
+    # make sure "/" mount first
+    partitions.sort(key=lambda x: len(x.mount_point))
+
     if root_count != 1:
         raise ValueError("There must be exactly one mount point with '/'.")
 
@@ -60,6 +64,27 @@ def parse_config() -> None:
         format=rootfs_format,
         root_passwd=rootfs_section["root_passwd"],
         partitions=partitions,
+    )
+
+    # Parse qemu section
+    qemu_section = parsed_toml["qemu"]
+
+    # Parse `tcp_port_forward` and ensure it's a dictionary with integer keys and values
+    tcp_port_forward_section = qemu_section.get("tcp_port_forward", {})
+    if not isinstance(tcp_port_forward_section, dict):
+        raise ValueError("`tcp_port_forward` must be a dictionary.")
+    tcp_port_forward = {}
+    for host_port, guest_port in tcp_port_forward_section.items():
+        tcp_port_forward[int(host_port)] = int(guest_port)
+
+    cached_qemu_config = QemuConfig(
+        ovmf_code_fd_path=str(qemu_section["ovmf_code_fd_path"]),
+        ovmf_vars_fd_path_copy_from=str(qemu_section["ovmf_vars_fd_path_copy_from"]),
+        boot_mode=QemuBootMode(qemu_section["boot_mode"]),
+        smp=int(qemu_section["smp"]),
+        memory_gb=int(qemu_section["memory_gb"]),
+        kvm_support=bool(qemu_section["kvm_support"]),
+        tcp_port_forward=tcp_port_forward,
     )
 
     # Parse kernel section
@@ -137,6 +162,22 @@ class KernelConfig:
     configure_overlay: dict[str, KernelConfigOptValue]
 
 
+class QemuBootMode(Enum):
+    UEFI = "UEFI"
+    BIOS = "BIOS"
+
+
+@dataclass
+class QemuConfig:
+    ovmf_code_fd_path: str
+    ovmf_vars_fd_path_copy_from: str
+    boot_mode: QemuBootMode
+    smp: int
+    memory_gb: int
+    kvm_support: bool
+    tcp_port_forward: dict[int, int]  # host: guest
+
+
 def get_archlinux_iso_url() -> str:
     return cached_rootfs_config.archlinux_iso_url  # type: ignore
 
@@ -171,3 +212,31 @@ def get_kernel_git_repo() -> str:
 
 def get_kernel_config_opts() -> dict[str, KernelConfigOptValue]:
     return cached_kernel_config.configure_overlay  # type: ignore
+
+
+def get_ovmf_code_fd_path() -> str:
+    return cached_qemu_config.ovmf_code_fd_path  #  type: ignore
+
+
+def get_ovmf_vars_fd_path_copy_from() -> str:
+    return cached_qemu_config.ovmf_vars_fd_path_copy_from  # type: ignore
+
+
+def get_qemu_boot_mode() -> QemuBootMode:
+    return cached_qemu_config.boot_mode  # type: ignore
+
+
+def get_qemu_smp() -> int:
+    return cached_qemu_config.smp  # type: ignore
+
+
+def get_qemu_memory_gb() -> int:
+    return cached_qemu_config.memory_gb  # type: ignore
+
+
+def get_qemu_kvm_support() -> bool:
+    return cached_qemu_config.kvm_support  # type: ignore
+
+
+def get_qemu_tcp_port_forward() -> dict[int, int]:
+    return cached_qemu_config.tcp_port_forward  # type: ignore

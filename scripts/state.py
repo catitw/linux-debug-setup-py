@@ -1,6 +1,6 @@
-from enum import Enum
 import json
 import os
+from enum import Enum
 
 from scripts.paths import get_state_dir
 

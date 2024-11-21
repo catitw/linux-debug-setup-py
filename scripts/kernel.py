@@ -1,21 +1,22 @@
+import os
+import shutil
+import subprocess
+
 from scripts.config import (
+    KernelConfigOptNum,
+    KernelConfigOptStr,
     KernelConfigOptValue,
     KernelConfigOptYNM,
-    KernelConfigOptStr,
-    KernelConfigOptNum,
     get_kernel_config_opts,
     get_kernel_git_repo,
     get_kernel_version,
 )
 from scripts.paths import (
+    get_linux_build_config_path,
     get_linux_build_dir,
     get_linux_config_script_path,
     get_linux_src_dir,
-    get_linux_build_config_path,
 )
-import os
-import subprocess
-
 from scripts.state import KernelMachine, KernelState
 from scripts.utils import get_cpu_cores_minus_one
 
@@ -35,13 +36,16 @@ def build_bzImage() -> None:
 def prepare_source() -> None:
     linux_src = get_linux_src_dir()
 
-    if not os.path.exists(linux_src):
-        # TODO: ensure the `git init` and `git remote add` atomic
-
-        subprocess.run(["git", "init", linux_src], check=True)
-        run_under_source_dir_checked(
-            ["git", "remote", "add", "origin", get_kernel_git_repo()],
-        )
+    # ensure the `git init` and `git remote add` atomic
+    try:
+        if not os.path.exists(linux_src):
+            subprocess.run(["git", "init", linux_src], check=True)
+            run_under_source_dir_checked(
+                ["git", "remote", "add", "origin", get_kernel_git_repo()],
+            )
+    except Exception as e:
+        shutil.rmtree(linux_src)
+        raise e
 
     run_under_source_dir_checked(
         ["git", "fetch", "--depth", "1", "origin", f"v{get_kernel_version()}"],

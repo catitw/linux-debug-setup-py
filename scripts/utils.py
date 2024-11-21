@@ -1,10 +1,11 @@
-import requests
-from typing import Tuple
 import hashlib
-from tqdm import tqdm
 import os
 import platform
 import stat
+from typing import Tuple
+
+import requests
+from tqdm import tqdm
 
 from scripts.config import get_partitions
 
