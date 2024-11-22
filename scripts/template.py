@@ -69,7 +69,12 @@ def gen_vscode_launch_json() -> None:
           "text": "-enable-pretty-printing",
           "ignoreFailures": true
         }}
-      ]
+      ],
+
+      // https://code.visualstudio.com/docs/cpp/launch-json-reference#_hardwarebreakpoints
+      "hardwareBreakpoints": {{
+        "require": {hardwareBreakpointsEnabled},
+      }}
     }}
   ]
 }}
@@ -81,6 +86,9 @@ def gen_vscode_launch_json() -> None:
             template.format(
                 vmlinux=get_vmlinux_path(),
                 workspaceFolder=get_linux_src_dir(),
+                hardwareBreakpointsEnabled="true"
+                if get_qemu_kvm_support()
+                else "false",
             )
         )
 
