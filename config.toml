@@ -1,15 +1,16 @@
 [rootfs]
-archlinux_iso_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/2024.10.01/archlinux-x86_64.iso"
-archlinux_iso_sha256_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/2024.10.01/sha256sums.txt"
+archlinux_iso_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/latest/archlinux-x86_64.iso"
+archlinux_iso_sha256_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/latest/sha256sums.txt"
 format = "qcow2"
 root_passwd = "1"
+backup_iso_before_build = true
 
 # size_gb: GB
 # available format now: vfat, ext4
 [[rootfs.partitions]]
 size_gb = 4
-format = "vfat"
-mount_point = "/efi"
+format = "fat"
+mount_point = "/boot"
 
 [[rootfs.partitions]]
 size_gb = 36
@@ -19,10 +20,19 @@ mount_point = "/"
 [qemu]
 ovmf_code_fd_path = "/usr/share/edk2/x64/OVMF_CODE.4m.fd"
 ovmf_vars_fd_path_copy_from = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
-boot_mode = "UEFI"                                                  # UEFI or BIOS
+
+boot_mode = "BIOS" # UEFI or BIOS
+kvm_support = true
+
+
+[qemu.build_rootfs]
+smp = 4
+memory_gb = 8
+
+[qemu.run_kernel]
 smp = 1
-memory_gb = 4                                                       # unit GB
-kvm_support = false
+memory_gb = 4
+
 
 [qemu.tcp_port_forward]
 # host : guest(qemu)
@@ -39,43 +49,65 @@ version = "6.10"
 kernel_git_repo_url = "https://mirrors.ustc.edu.cn/linux.git"
 
 [kernel.configure_overlay]
-# disable optimize
-CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE = "N"
-CONFIG_CC_OPTIMIZE_FOR_SIZE = "N"
-CONFIG_OPTIMIZE_INLINING = "N"
-CONFIG_FUNCTION_TRACER = "N"
+# KASLR
+CONFIG_RANDOMIZE_BASE = "N"
 
-# disable optimize on X86
-CONFIG_X86_GENERICARCH = "N"
+# Debugging
+CONFIG_FRAME_POINTER = "Y"
+CONFIG_DEBUG_KERNEL = "Y"
 
-# EFI
-EFI_BOOTLOADER_CONTROL = "M"
-
-# initramfs
-CONFIG_BLK_DEV_INITRD = "Y"
-CONFIG_DEVTMPFS = "Y"
-CONFIG_DEVTMPFS_MOUNT = "Y"
-
-CONFIG_BLK_DEV_RAM = "M"
-CONFIG_BLK_DEV_RAM_COUNT = 16
-CONFIG_BLK_DEV_RAM_SIZE = 65536
-CONFIG_DEBUG_INFO = "Y"
-CONFIG_AS_HAS_NON_CONST_LEB128 = "Y"
-CONFIG_DEBUG_INFO_NONE = "N"
 CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT = "N"
 CONFIG_DEBUG_INFO_DWARF4 = "N"
 CONFIG_DEBUG_INFO_DWARF5 = "Y"
-CONFIG_RANDOMIZE_BASE = "N"
+
 CONFIG_DEBUG_INFO_REDUCED = "N"
+
 CONFIG_DEBUG_INFO_COMPRESSED_NONE = "Y"
-CONFIG_DEBUG_INFO_COMPRESSED_ZLIB = "Y"
+CONFIG_DEBUG_INFO_COMPRESSED_ZLIB = "N"
 CONFIG_DEBUG_INFO_COMPRESSED_ZSTD = "N"
+
 CONFIG_DEBUG_INFO_SPLIT = "N"
+
 CONFIG_GDB_SCRIPTS = "Y"
-CONFIG_FRAME_WARN = 2048
-CONFIG_STRIP_ASM_SYMS = "N"
-CONFIG_READABLE_ASM = "N"
-CONFIG_HEADERS_INSTALL = "N"
-CONFIG_DEBUG_SECTION_MISMATCH = "N"
-CONFIG_SECTION_MISMATCH_WARN_ONLY = "Y"
-CONFIG_DEBUG_FORCE_WEAK_PER_CPU = "N"
+
+# [kernel.configure_overlay]
+# # disable optimize
+# CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE = "N"
+# CONFIG_CC_OPTIMIZE_FOR_SIZE = "N"
+# CONFIG_OPTIMIZE_INLINING = "N"
+# CONFIG_FUNCTION_TRACER = "N"
+#
+# # disable optimize on X86
+# CONFIG_X86_GENERICARCH = "N"
+#
+# # EFI
+# EFI_BOOTLOADER_CONTROL = "M"
+#
+# # initramfs
+# CONFIG_BLK_DEV_INITRD = "Y"
+# CONFIG_DEVTMPFS = "Y"
+# CONFIG_DEVTMPFS_MOUNT = "Y"
+#
+# CONFIG_BLK_DEV_RAM = "M"
+# CONFIG_BLK_DEV_RAM_COUNT = 16
+# CONFIG_BLK_DEV_RAM_SIZE = 65536
+# CONFIG_DEBUG_INFO = "Y"
+# CONFIG_AS_HAS_NON_CONST_LEB128 = "Y"
+# CONFIG_DEBUG_INFO_NONE = "N"
+# CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT = "N"
+# CONFIG_DEBUG_INFO_DWARF4 = "N"
+# CONFIG_DEBUG_INFO_DWARF5 = "Y"
+# CONFIG_RANDOMIZE_BASE = "N"
+# CONFIG_DEBUG_INFO_REDUCED = "N"
+# CONFIG_DEBUG_INFO_COMPRESSED_NONE = "Y"
+# CONFIG_DEBUG_INFO_COMPRESSED_ZLIB = "Y"
+# CONFIG_DEBUG_INFO_COMPRESSED_ZSTD = "N"
+# CONFIG_DEBUG_INFO_SPLIT = "N"
+# CONFIG_GDB_SCRIPTS = "Y"
+# CONFIG_FRAME_WARN = 2048
+# CONFIG_STRIP_ASM_SYMS = "N"
+# CONFIG_READABLE_ASM = "N"
+# CONFIG_HEADERS_INSTALL = "N"
+# CONFIG_DEBUG_SECTION_MISMATCH = "N"
+# CONFIG_SECTION_MISMATCH_WARN_ONLY = "Y"
+# CONFIG_DEBUG_FORCE_WEAK_PER_CPU = "N"

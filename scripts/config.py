@@ -2,6 +2,7 @@ import os
 import sys
 from dataclasses import dataclass
 from enum import Enum
+from typing import Tuple
 
 import toml
 
@@ -35,12 +36,16 @@ def parse_config() -> None:
     # Parse partitions and validate PartitionFormat
     partitions = []
     root_count = 0  # only one "/" mount point allowed
+    efi_count = 0  # only one EFI partition allowed
     for partition in rootfs_section["partitions"]:
         partition_format = PartitionFormat(partition["format"])  # Validate the format
         mount_point = partition["mount_point"]
 
         if not os.path.isabs(mount_point):
             raise ValueError(f"Mount point {mount_point} is not an absolute path.")
+
+        if partition_format == PartitionFormat.FAT:
+            efi_count += 1
 
         if mount_point == "/":
             root_count += 1
@@ -52,6 +57,12 @@ def parse_config() -> None:
         )
         partitions.append(partition_config)
 
+    parts_order_list = [(c, i) for i, c in enumerate(partitions, start=1)]
+    parts_order_list.sort(key=lambda x: len(x[0].mount_point))
+
+    if efi_count != 1:
+        raise ValueError("There must be exactly one EFI partition.")
+
     if root_count != 1:
         raise ValueError("There must be exactly one mount point with '/'.")
 
@@ -60,7 +71,8 @@ def parse_config() -> None:
         archlinux_iso_sha256_url=rootfs_section["archlinux_iso_sha256_url"],
         format=rootfs_format,
         root_passwd=rootfs_section["root_passwd"],
-        partitions=partitions,
+        backup_iso_before_build=bool(rootfs_section["backup_iso_before_build"]),
+        partitions_with_order=parts_order_list,
     )
 
     # Parse qemu section
@@ -74,14 +86,26 @@ def parse_config() -> None:
     for host_port, guest_port in tcp_port_forward_section.items():
         tcp_port_forward[int(host_port)] = int(guest_port)
 
+    qemu_build_rootfs_sec = qemu_section["build_rootfs"]
+    qemu_build_rootfs = QemuBootConfig(
+        smp=int(qemu_build_rootfs_sec["smp"]),
+        memory_gb=int(qemu_build_rootfs_sec["memory_gb"]),
+    )
+
+    qemu_run_kernel_sec = qemu_section["run_kernel"]
+    qemu_run_kernel = QemuBootConfig(
+        smp=int(qemu_run_kernel_sec["smp"]),
+        memory_gb=int(qemu_run_kernel_sec["memory_gb"]),
+    )
+
     cached_qemu_config = QemuConfig(
         ovmf_code_fd_path=str(qemu_section["ovmf_code_fd_path"]),
         ovmf_vars_fd_path_copy_from=str(qemu_section["ovmf_vars_fd_path_copy_from"]),
         boot_mode=QemuBootMode(qemu_section["boot_mode"]),
-        smp=int(qemu_section["smp"]),
-        memory_gb=int(qemu_section["memory_gb"]),
         kvm_support=bool(qemu_section["kvm_support"]),
         tcp_port_forward=tcp_port_forward,
+        build_rootfs=qemu_build_rootfs,
+        run_kernel=qemu_run_kernel,
     )
 
     # Parse kernel section
@@ -113,8 +137,15 @@ class QemuImgFormat(Enum):
 
 
 class PartitionFormat(Enum):
-    VFAT = "vfat"
+    FAT = "fat"
     EXT4 = "ext4"
+
+    def mkfs_cmd(self) -> str:
+        match self:
+            case PartitionFormat.FAT:
+                return "mkfs.fat -F 32"
+            case PartitionFormat.EXT4:
+                return "mkfs.ext4"
 
 
 @dataclass
@@ -130,7 +161,8 @@ class RootfsConfig:
     archlinux_iso_sha256_url: str
     format: QemuImgFormat
     root_passwd: str
-    partitions: list[PartitionFormatConfig]
+    backup_iso_before_build: bool
+    partitions_with_order: list[Tuple[PartitionFormatConfig, int]]
 
 
 class KernelConfigOptYNM(Enum):
@@ -165,14 +197,20 @@ class QemuBootMode(Enum):
 
 
 @dataclass
+class QemuBootConfig:
+    smp: int
+    memory_gb: int
+
+
+@dataclass
 class QemuConfig:
     ovmf_code_fd_path: str
     ovmf_vars_fd_path_copy_from: str
     boot_mode: QemuBootMode
-    smp: int
-    memory_gb: int
     kvm_support: bool
     tcp_port_forward: dict[int, int]  # host: guest
+    build_rootfs: QemuBootConfig
+    run_kernel: QemuBootConfig
 
 
 def get_archlinux_iso_url() -> str:
@@ -187,12 +225,16 @@ def get_rootfs_format() -> QemuImgFormat:
     return cached_rootfs_config.format  # type: ignore
 
 
-def get_partitions() -> list[PartitionFormatConfig]:
-    return cached_rootfs_config.partitions  # type: ignore
+def get_backup_iso_before_build() -> bool:
+    return cached_rootfs_config.backup_iso_before_build  # type: ignore
+
+
+def get_partitions_with_order() -> list[Tuple[PartitionFormatConfig, int]]:
+    return cached_rootfs_config.partitions_with_order  # type: ignore
 
 
 def get_rootfs_size_gb_ideal() -> int:
-    return sum(partition.size_gb for partition in get_partitions())
+    return sum(partition[0].size_gb for partition in get_partitions_with_order())
 
 
 def get_img_root_passwd() -> str:
@@ -223,12 +265,20 @@ def get_qemu_boot_mode() -> QemuBootMode:
     return cached_qemu_config.boot_mode  # type: ignore
 
 
-def get_qemu_smp() -> int:
-    return cached_qemu_config.smp  # type: ignore
+def get_qemu_smp_when_build_rootfs() -> int:
+    return cached_qemu_config.build_rootfs.smp  # type: ignore
 
 
-def get_qemu_memory_gb() -> int:
-    return cached_qemu_config.memory_gb  # type: ignore
+def get_qemu_memory_gb_when_build_rootfs() -> int:
+    return cached_qemu_config.build_rootfs.memory_gb  # type: ignore
+
+
+def get_qemu_smp_when_run_kernel() -> int:
+    return cached_qemu_config.run_kernel.smp  # type: ignore
+
+
+def get_qemu_memory_gb_when_run_kernel() -> int:
+    return cached_qemu_config.run_kernel.memory_gb  # type: ignore
 
 
 def get_qemu_kvm_support() -> bool:

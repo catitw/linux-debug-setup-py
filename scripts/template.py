@@ -8,8 +8,8 @@ from scripts.config import (
     get_ovmf_vars_fd_path_copy_from,
     get_qemu_boot_mode,
     get_qemu_kvm_support,
-    get_qemu_memory_gb,
-    get_qemu_smp,
+    get_qemu_memory_gb_when_run_kernel,
+    get_qemu_smp_when_run_kernel,
     get_qemu_tcp_port_forward,
     get_rootfs_format,
 )
@@ -164,8 +164,8 @@ def build_common_section() -> str:
     ovmf_vars_path = get_ovmf_vars_path()
 
     base = QEMU_TEMPLATE_BASE.format(
-        smp=get_qemu_smp(),
-        memory_gb=get_qemu_memory_gb(),
+        smp=get_qemu_smp_when_run_kernel(),
+        memory_gb=get_qemu_memory_gb_when_run_kernel(),
         rootFsPath=get_rootfs_img_path(),
         rootFsFormat=format_str,
         bzImagePath=get_bzimage_path(),

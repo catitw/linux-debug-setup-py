@@ -7,7 +7,7 @@ from typing import Tuple
 import requests
 from tqdm import tqdm
 
-from scripts.config import get_partitions
+from scripts.config import PartitionFormat, get_partitions_with_order
 
 
 def download_file(url: str, save_path: str, desc: str) -> None:
@@ -159,10 +159,23 @@ def dev_partition_contains_root() -> str:
     """
     e.g. "/dev/sda1"
     """
-    partition_conf = get_partitions()
+    conf_order_list = get_partitions_with_order()
 
-    for i, c in enumerate(partition_conf, start=1):
+    for c, i in conf_order_list:
         if c.mount_point == "/":
             return f"/dev/sda{i}"
 
     raise ValueError("No root partition found")
+
+
+def mount_point_contains_efi() -> str:
+    """
+    e.g. '/boot'
+    """
+    conf_order_list = get_partitions_with_order()
+
+    for c, i in conf_order_list:
+        if c.format == PartitionFormat.FAT:
+            return f"/dev/sda{i}"
+
+    raise ValueError("No EFI partition found")
