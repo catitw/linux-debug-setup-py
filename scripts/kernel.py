@@ -114,9 +114,7 @@ def build_source() -> None:
     jobs = get_cpu_cores_minus_one()
 
     env = os.environ.copy()
-    env["KBUILD_CFLAGS"] = (
-        "-fno-inline -fno-inline-functions -fno-inline-small-functions"
-    )
+    env["KBUILD_CFLAGS"] = "-fno-inline"
 
     subprocess.run(
         [

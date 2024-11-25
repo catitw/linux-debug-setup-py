@@ -100,22 +100,12 @@ qemu-system-x86_64 \
     -m {memory_gb}G \
     -drive file={rootFsPath},format={rootFsFormat} \
     -kernel {bzImagePath} \
-    -append "root={rootPartition} rw console=ttyS0 nokaslr" \
+    -append "root={rootPartition} rw console=ttyS0 landlock=on nokaslr" \
 """.lstrip("\n")
 
 KVM_APPEND = r"""
     -cpu host \
     -accel kvm \
-""".lstrip("\n")
-
-PORT_FORWARD_APPEND = r"""
-    -net nic \
-    -net user,hostfwd=tcp::2222-:22 \
-    -net user,hostfwd=tcp::18000-:8000 \
-    -net user,hostfwd=tcp::18001-:8001 \
-    -net user,hostfwd=tcp::18002-:8002 \
-    -net user,hostfwd=tcp::18003-:8003 \
-    -net user,hostfwd=tcp::18004-:8004 \
 """.lstrip("\n")
 
 UEFI_BOOT_APPEND = r"""
@@ -195,20 +185,19 @@ def build_common_section() -> str:
 
     # e.g.:
     # -net nic \
-    # -net user,hostfwd=tcp::2222-:22 \
-    # -net user,hostfwd=tcp::18000-:8000 \
+    # -net user,\
+    # hostfwd=tcp::2222-:22,\
+    # hostfwd=tcp::18000-:8000,\
+    # hostfwd=tcp::18001-:8001 \
+
+    hostfwd_str = ",".join(
+        f"hostfwd=tcp::{host_port}-:{guest_port}"
+        for host_port, guest_port in tcp_port_foward_conf.items()
+    )
+
     port_forward_str = (
-        ""
-        if len(tcp_port_foward_conf) == 0
-        else "    -net nic \\"
-        + "\n"
-        + "\n".join(
-            [
-                f"    -net user,hostfwd=tcp::{host_port}-:{guest_port} \\"
-                for host_port, guest_port in tcp_port_foward_conf.items()
-            ]
-        )
-        + "\n"
+        f"    -net nic \\\n"  # create network interface
+        f"    -net user{","+ hostfwd_str if hostfwd_str != "" else ""} \\\n"
     )
 
     return base + kvm + boot_mode + port_forward_str
