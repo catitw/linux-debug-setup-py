@@ -7,7 +7,12 @@ from typing import Tuple
 import requests
 from tqdm import tqdm
 
-from scripts.config import PartitionFormat, get_partitions_with_order
+from scripts.config import (
+    PartitionFormat,
+    QemuBootMode,
+    get_partitions_with_order,
+    get_qemu_boot_mode,
+)
 
 
 def download_file(url: str, save_path: str, desc: str) -> None:
@@ -163,7 +168,10 @@ def dev_partition_contains_root() -> str:
 
     for c, i in conf_order_list:
         if c.mount_point == "/":
-            return f"/dev/sda{i}"
+            if get_qemu_boot_mode() == QemuBootMode.UEFI:
+                return f"/dev/vda{i}"
+            else:
+                return f"/dev/sda{i}"
 
     raise ValueError("No root partition found")
 

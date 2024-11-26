@@ -98,7 +98,7 @@ QEMU_TEMPLATE_BASE = r"""
 qemu-system-x86_64 \
     -smp {smp} \
     -m {memory_gb}G \
-    -drive file={rootFsPath},format={rootFsFormat} \
+    -drive if=virtio,file={rootFsPath},index=0,format={rootFsFormat} \
     -kernel {bzImagePath} \
     -append "root={rootPartition} rw console=ttyS0 landlock=on nokaslr" \
 """.lstrip("\n")

@@ -21,7 +21,7 @@ mount_point = "/"
 ovmf_code_fd_path = "/usr/share/edk2/x64/OVMF_CODE.4m.fd"
 ovmf_vars_fd_path_copy_from = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
 
-boot_mode = "BIOS" # UEFI or BIOS
+boot_mode = "UEFI" # UEFI or BIOS
 kvm_support = true
 
 
