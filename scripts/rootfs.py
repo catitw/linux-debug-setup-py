@@ -307,6 +307,7 @@ def install_base_system(child):
             "iwd",
             "vim",
             "bash-completion",
+            "xterm",  # we need the `resize` cmd
         ]
 
         run_command(

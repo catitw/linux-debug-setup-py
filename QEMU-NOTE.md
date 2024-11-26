@@ -21,3 +21,7 @@ qemu-system-x86_64 \
 # Booting with KVM enabled
 
 if you boot with KVM enabled, you must use `hb` to set breakpoint in GDB.
+
+# TTY size unmatched?
+
+use `resize` cmd(provided by `xterm` package).
