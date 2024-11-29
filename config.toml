@@ -77,3 +77,6 @@ CONFIG_CC_OPTIMIZE_FOR_SIZE = "N"
 
 # archlinux requirement
 CONFIG_SECURITY_LANDLOCK = "Y"
+
+[other]
+build_with_ccache = true

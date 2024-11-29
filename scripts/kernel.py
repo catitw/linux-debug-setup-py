@@ -7,6 +7,7 @@ from scripts.config import (
     KernelConfigOptStr,
     KernelConfigOptValue,
     KernelConfigOptYNM,
+    get_build_with_ccache,
     get_kernel_config_opts,
     get_kernel_git_repo,
     get_kernel_version,
@@ -114,7 +115,10 @@ def build_source() -> None:
     jobs = get_cpu_cores_minus_one()
 
     env = os.environ.copy()
-    env["KBUILD_CFLAGS"] = "-fno-inline"
+    if get_build_with_ccache():
+        # https://docs.kernel.org/kbuild/llvm.html#ccache
+        env["KBUILD_BUILD_TIMESTAMP"] = ""
+        print("build kernel with ccache")
 
     subprocess.run(
         [
@@ -125,6 +129,7 @@ def build_source() -> None:
             "--",
             "make",
             f"O={linux_build}",
+            "CC=ccache gcc",
             f"-j{jobs}",
         ],
         env=env,
@@ -140,5 +145,5 @@ def linux_make_source() -> None:
     run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "clean"])
 
 
-def run_under_source_dir_checked(cmds: list[str]) -> None:
-    subprocess.run(cmds, cwd=get_linux_src_dir(), check=True)
+def run_under_source_dir_checked(cmds: list[str], **kwargs) -> None:
+    subprocess.run(cmds, cwd=get_linux_src_dir(), check=True, **kwargs)
