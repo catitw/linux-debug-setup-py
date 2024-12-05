@@ -29,7 +29,11 @@ def download_file(url: str, save_path: str, desc: str) -> None:
     """
     # Ensure the parent directory exists
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    with requests.get(url, stream=True) as response:
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
+    }
+    with requests.get(url, stream=True, headers=headers) as response:
         response.raise_for_status()  # Raise HTTPError for bad responses
         total_size = int(
             response.headers.get("content-length", 0)
