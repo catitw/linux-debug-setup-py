@@ -64,7 +64,7 @@ def ensure_iso_available(save_path: str):
     iso_filename = os.path.basename(save_path)
 
     if iso_filename not in checksums:
-        raise Exception(f"Checksum for {iso_filename} not found in { sha256_url}")
+        raise Exception(f"Checksum for {iso_filename} not found in {sha256_url}")
 
     expected_checksum = checksums[iso_filename]
 

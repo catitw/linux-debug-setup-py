@@ -14,6 +14,10 @@ from scripts.config import (
     get_qemu_boot_mode,
 )
 
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+}
+
 
 def download_file(url: str, save_path: str, desc: str) -> None:
     """
@@ -30,10 +34,7 @@ def download_file(url: str, save_path: str, desc: str) -> None:
     # Ensure the parent directory exists
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
-    }
-    with requests.get(url, stream=True, headers=headers) as response:
+    with requests.get(url, stream=True, headers=HTTP_HEADERS) as response:
         response.raise_for_status()  # Raise HTTPError for bad responses
         total_size = int(
             response.headers.get("content-length", 0)
@@ -60,10 +61,12 @@ def get_remote_file_info(url: str) -> Tuple[int, str]:
         tuple: File size in bytes and ETag (if provided),
         or None if unavailable.
     """
-    with requests.head(url) as response:
+    with requests.head(url, headers=HTTP_HEADERS) as response:
         response.raise_for_status()
         file_size = int(response.headers.get("content-length", 0))
-        etag = response.headers.get("etag", "").strip('"')  # Strip quotes if present
+
+        # Strip quotes if present
+        etag = response.headers.get("etag", "").strip('"')
         return file_size, etag
 
 
@@ -77,7 +80,7 @@ def get_sha256_from_url(url: str) -> dict:
     Returns:
         dict: A mapping of filenames to their checksums.
     """
-    response = requests.get(url)
+    response = requests.get(url, headers=HTTP_HEADERS)
     response.raise_for_status()
     checksums = {}
     for line in response.text.splitlines():

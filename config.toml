@@ -1,6 +1,6 @@
 [rootfs]
-archlinux_iso_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/latest/archlinux-x86_64.iso"
-archlinux_iso_sha256_url = "https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/latest/sha256sums.txt"
+archlinux_iso_url = "https://mirrors.shanghaitech.edu.cn/archlinux/iso/latest/archlinux-x86_64.iso"
+archlinux_iso_sha256_url = "https://mirrors.shanghaitech.edu.cn/archlinux/iso/latest/sha256sums.txt"
 format = "qcow2"
 root_passwd = "1"
 backup_iso_before_build = true
