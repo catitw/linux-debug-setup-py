@@ -45,7 +45,7 @@ memory_gb = 4
 
 
 [kernel]
-version = "6.10"
+version = "6.12.11"
 kernel_git_repo_url = "https://mirrors.ustc.edu.cn/linux.git"
 
 [kernel.configure_overlay]
