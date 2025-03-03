@@ -11,6 +11,8 @@ from scripts.config import (
     get_kernel_config_opts,
     get_kernel_git_repo,
     get_kernel_version,
+    get_kernel_build_with_rust,
+    set_kernel_build_with_rust
 )
 from scripts.paths import (
     get_linux_build_config_path,
@@ -20,6 +22,7 @@ from scripts.paths import (
 )
 from scripts.state import KernelMachine, KernelState
 from scripts.utils import get_cpu_cores_minus_one
+from scripts.rust import apply_rust_config, gen_rust_project_json
 
 
 def build_bzImage() -> None:
@@ -93,6 +96,16 @@ def apply_custom_config(opt_key: str, opt_value: KernelConfigOptValue):
             )
 
 
+def check_rust_available() -> bool:
+    linux_build = get_linux_build_dir()
+    jobs = get_cpu_cores_minus_one()
+    try:
+        run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "LLVM=1", "rustavailable"])
+        return True
+    except:
+        return False
+
+
 def configure_source() -> None:
     linux_build = get_linux_build_dir()
     jobs = get_cpu_cores_minus_one()
@@ -101,6 +114,12 @@ def configure_source() -> None:
 
     for opt_key, opt_value in get_kernel_config_opts().items():
         apply_custom_config(opt_key, opt_value)
+
+    if get_kernel_build_with_rust():
+        if check_rust_available():
+            apply_rust_config()
+        else:
+            set_kernel_build_with_rust(False)
 
     run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "oldconfig"])
 
@@ -129,20 +148,22 @@ def build_source() -> None:
             "--",
             "make",
             f"O={linux_build}",
-            "CC=ccache gcc",
             f"-j{jobs}",
-        ],
+        ] + ["LLVM=1", "CC=ccache clang"] if get_kernel_build_with_rust() else ["CC=ccache gcc"],
         env=env,
         cwd=linux_src,
         check=True,
     )
 
+    if get_kernel_build_with_rust():
+        gen_rust_project_json()
 
-def linux_make_source() -> None:
+
+def linux_distclean_source() -> None:
     linux_build = get_linux_build_dir()
     jobs = get_cpu_cores_minus_one()
 
-    run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "clean"])
+    run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "distclean"])
 
 
 def run_under_source_dir_checked(cmds: list[str], **kwargs) -> None:

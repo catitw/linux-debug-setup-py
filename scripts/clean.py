@@ -2,7 +2,7 @@ import os
 import shutil
 import sys
 
-from scripts.kernel import linux_make_source
+from scripts.kernel import linux_distclean_source
 from scripts.paths import (
     get_linux_build_dir,
     get_linux_src_dir,
@@ -16,7 +16,7 @@ from scripts.utils import remove_file_without_check
 
 def clean_linux():
     if os.path.exists(get_linux_src_dir()):
-        linux_make_source()
+        linux_distclean_source()
         KernelMachine.set_state(KernelState.SRC_CLONED)
     else:
         print("linux source directory not found! `make clean` skipped", file=sys.stderr)

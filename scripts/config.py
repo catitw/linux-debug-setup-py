@@ -13,11 +13,7 @@ cached_other_config = None
 
 
 def parse_config() -> None:
-    global \
-        cached_rootfs_config, \
-        cached_qemu_config, \
-        cached_kernel_config, \
-        cached_other_config
+    global cached_rootfs_config, cached_qemu_config, cached_kernel_config, cached_other_config
 
     # Load and parse the TOML file
     with open(os.path.abspath("config.toml"), "r") as f:
@@ -147,6 +143,7 @@ KernelConfigOptValue = KernelConfigOptYNM | KernelConfigOptStr | KernelConfigOpt
 class KernelConfig:
     version: str
     kernel_git_repo_url: str
+    build_with_rust: bool
     configure_overlay: dict[str, KernelConfigOptValue]
 
     @staticmethod
@@ -168,6 +165,7 @@ class KernelConfig:
         return KernelConfig(
             version=conf_sec["version"],
             kernel_git_repo_url=conf_sec["kernel_git_repo_url"],
+            build_with_rust=conf_sec["build_with_rust"],
             configure_overlay=kernel_configure_overlay,
         )
 
@@ -269,6 +267,14 @@ def get_kernel_version() -> str:
 
 def get_kernel_git_repo() -> str:
     return cached_kernel_config.kernel_git_repo_url  # type: ignore
+
+
+def get_kernel_build_with_rust() -> bool:
+    return cached_kernel_config.build_with_rust  # type: ignore
+
+
+def set_kernel_build_with_rust(opt: bool) -> None:
+    cached_kernel_config.build_with_rust = opt
 
 
 def get_kernel_config_opts() -> dict[str, KernelConfigOptValue]:

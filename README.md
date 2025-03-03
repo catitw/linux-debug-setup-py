@@ -13,3 +13,9 @@ following cmds are required:
 - `qemu-img`
 - `qemu-system-x86_64`
 - `bear`
+- `rust-bindgen` if rust enabled.
+
+
+## Rust
+
+- [Kernel Rust Quickstart](https://docs.kernel.org/rust/quick-start.html)

@@ -1,4 +1,6 @@
-# Booting in UEFI mode
+# QEMU NOTE
+
+## Booting in UEFI mode
 
 > [Archlinux Wiki](https://wiki.archlinux.org/title/QEMU#Booting_in_UEFI_mode)
 
@@ -18,10 +20,10 @@ qemu-system-x86_64 \
     -nographic
 ```
 
-# Booting with KVM enabled
+## Booting with KVM enabled
 
 if you boot with KVM enabled, you must use `hb` to set breakpoint in GDB.
 
-# TTY size unmatched?
+## TTY size unmatched?
 
 use `resize` cmd(provided by `xterm` package).
