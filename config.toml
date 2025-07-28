@@ -45,7 +45,7 @@ memory_gb = 4
 
 
 [kernel]
-version = "6.13.5"
+version = "6.15.8"
 build_with_rust = true
 kernel_git_repo_url = "https://mirrors.ustc.edu.cn/linux.git"
 
