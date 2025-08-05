@@ -2,7 +2,7 @@ import os
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Self, Tuple
+from typing import Any, Self, Tuple, Optional
 
 import toml
 
@@ -139,9 +139,48 @@ class KernelConfigOptNum:
 KernelConfigOptValue = KernelConfigOptYNM | KernelConfigOptStr | KernelConfigOptNum
 
 
+class KernelVersionType(Enum):
+    """Enum representing different kernel version specification types."""
+    LATEST = "latest"
+    BRANCH = "branch"
+    TAG = "tag"
+    COMMIT = "commit"
+
+
+@dataclass
+class KernelVersionConfig:
+    """Configuration for kernel version specification."""
+    type: KernelVersionType
+    value: Optional[str] = None  # None for UNSPECIFIED, string value for others
+    
+    def get_git_ref(self) -> str:
+        """Get the git reference string for fetching."""
+        match self.type:
+            case KernelVersionType.LATEST:
+                return "HEAD"  # Default to latest
+            case KernelVersionType.BRANCH:
+                return self.value if self.value else "HEAD"
+            case KernelVersionType.TAG:
+                return f"v{self.value}" if self.value else "HEAD"
+            case KernelVersionType.COMMIT:
+                return self.value if self.value else "HEAD"
+    
+    def get_fetch_ref(self) -> str:
+        """Get the reference for git fetch command."""
+        match self.type:
+            case KernelVersionType.LATEST:
+                return "HEAD"
+            case KernelVersionType.BRANCH:
+                return self.value if self.value else "HEAD"
+            case KernelVersionType.TAG:
+                return self.value if self.value else "HEAD"
+            case KernelVersionType.COMMIT:
+                return self.value if self.value else "HEAD"
+
+
 @dataclass
 class KernelConfig:
-    version: str
+    version_config: KernelVersionConfig
     kernel_git_repo_url: str
     build_with_rust: bool
     configure_overlay: dict[str, KernelConfigOptValue]
@@ -162,12 +201,28 @@ class KernelConfig:
             elif isinstance(value, int):
                 kernel_configure_overlay[key] = KernelConfigOptNum(value)
 
+        # Parse version configuration
+        version_config = KernelConfig._parse_version_config(conf_sec)
+
         return KernelConfig(
-            version=conf_sec["version"],
+            version_config=version_config,
             kernel_git_repo_url=conf_sec["kernel_git_repo_url"],
             build_with_rust=conf_sec["build_with_rust"],
             configure_overlay=kernel_configure_overlay,
         )
+    
+    @staticmethod
+    def _parse_version_config(conf_sec: dict[str, Any]) -> KernelVersionConfig:
+        """Parse kernel version configuration from config section."""
+        if "version_config" in conf_sec:
+            version_conf = conf_sec["version_config"]
+            if isinstance(version_conf, dict):
+                version_type = KernelVersionType(version_conf["type"])
+                version_value = version_conf.get("value")
+                return KernelVersionConfig(type=version_type, value=version_value)
+        
+        # Default to latest if no version_config found
+        return KernelVersionConfig(type=KernelVersionType.LATEST)
 
 
 class QemuBootMode(Enum):
@@ -261,8 +316,30 @@ def get_img_root_passwd() -> str:
     return cached_rootfs_config.root_passwd  # type: ignore
 
 
+def get_kernel_version_config() -> KernelVersionConfig:
+    """Get the kernel version configuration object."""
+    return cached_kernel_config.version_config  # type: ignore
+
+
 def get_kernel_version() -> str:
-    return cached_kernel_config.version  # type: ignore
+    """Get kernel version string for backward compatibility.
+    
+    Returns the version value if available, otherwise returns 'latest'.
+    """
+    version_config = get_kernel_version_config()
+    if version_config.value:
+        return version_config.value
+    return "latest"
+
+
+def get_kernel_git_ref() -> str:
+    """Get the git reference for kernel checkout."""
+    return get_kernel_version_config().get_git_ref()
+
+
+def get_kernel_fetch_ref() -> str:
+    """Get the git reference for kernel fetch."""
+    return get_kernel_version_config().get_fetch_ref()
 
 
 def get_kernel_git_repo() -> str:

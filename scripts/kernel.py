@@ -7,10 +7,14 @@ from scripts.config import (
     KernelConfigOptStr,
     KernelConfigOptValue,
     KernelConfigOptYNM,
+    KernelVersionType,
     get_build_with_ccache,
     get_kernel_config_opts,
     get_kernel_git_repo,
     get_kernel_version,
+    get_kernel_version_config,
+    get_kernel_fetch_ref,
+    get_kernel_git_ref,
     get_kernel_build_with_rust,
     set_kernel_build_with_rust
 )
@@ -41,7 +45,9 @@ def build_bzImage() -> None:
 
 
 def prepare_source() -> None:
+    """Prepare kernel source code based on version configuration."""
     linux_src = get_linux_src_dir()
+    version_config = get_kernel_version_config()
 
     # ensure the `git init` and `git remote add` atomic
     try:
@@ -54,13 +60,38 @@ def prepare_source() -> None:
         shutil.rmtree(linux_src)
         raise e
 
-    run_under_source_dir_checked(
-        ["git", "fetch", "--depth", "1", "origin", f"v{get_kernel_version()}"],
-    )
+    # Handle different version types
+    match version_config.type:
+        case KernelVersionType.LATEST:
+            print("Fetching latest kernel source...")
+            run_under_source_dir_checked(
+                ["git", "fetch", "--depth", "1", "origin", "HEAD"],
+            )
+        case KernelVersionType.BRANCH:
+            print(f"Fetching kernel branch: {version_config.value}")
+            run_under_source_dir_checked(
+                ["git", "fetch", "--depth", "1", "origin", get_kernel_fetch_ref()],
+            )
+        case KernelVersionType.TAG:
+            print(f"Fetching kernel tag: {version_config.value}")
+            run_under_source_dir_checked(
+                ["git", "fetch", "--depth", "1", "origin", get_kernel_fetch_ref()],
+            )
+        case KernelVersionType.COMMIT:
+            print(f"Fetching kernel commit: {version_config.value}")
+            run_under_source_dir_checked(
+                ["git", "fetch", "--depth", "1", "origin", get_kernel_fetch_ref()],
+            )
 
-    run_under_source_dir_checked(
-        ["git", "checkout", "FETCH_HEAD"],
-    )
+    # Checkout to the appropriate reference
+    if version_config.type == KernelVersionType.COMMIT and version_config.value:
+        run_under_source_dir_checked(
+            ["git", "checkout", version_config.value],
+        )
+    else:
+        run_under_source_dir_checked(
+            ["git", "checkout", "FETCH_HEAD"],
+        )
 
     KernelMachine.set_state(KernelState.SRC_CLONED)
 

@@ -45,9 +45,27 @@ memory_gb = 4
 
 
 [kernel]
-version = "6.15.8"
 build_with_rust = true
-kernel_git_repo_url = "https://mirrors.ustc.edu.cn/linux.git"
+# kernel_git_repo_url = "https://mirrors.ustc.edu.cn/linux.git"
+kernel_git_repo_url = "git@github.com:catitw/linux.git"
+
+[kernel.version_config]
+# Kernel version configuration - choose one of the following:
+
+## latest version ##
+type = "latest"
+
+## specific branch ##
+# type = "branch"
+# value = "master"
+
+## specific tag ##
+# type = "tag"
+# value = "v6.15"
+
+## specific commit (could be very slow)##
+# type = "commit"
+# value = "abc123def456"
 
 [kernel.configure_overlay]
 # KASLR
