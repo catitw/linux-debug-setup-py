@@ -11,12 +11,10 @@ from scripts.config import (
     get_build_with_ccache,
     get_kernel_config_opts,
     get_kernel_git_repo,
-    get_kernel_version,
     get_kernel_version_config,
     get_kernel_fetch_ref,
-    get_kernel_git_ref,
     get_kernel_build_with_rust,
-    set_kernel_build_with_rust
+    set_kernel_build_with_rust,
 )
 from scripts.paths import (
     get_linux_build_config_path,
@@ -131,7 +129,20 @@ def check_rust_available() -> bool:
     linux_build = get_linux_build_dir()
     jobs = get_cpu_cores_minus_one()
     try:
-        run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "LLVM=1", "rustavailable"])
+        run_under_source_dir_checked(
+            [
+                "bear",
+                "--append",
+                "--output",
+                f"{get_linux_src_dir()}/compile_commands.json",
+                "--",
+                "make",
+                f"O={linux_build}",
+                f"-j{jobs}",
+                "LLVM=1",
+                "rustavailable",
+            ]
+        )
         return True
     except:
         return False
@@ -141,7 +152,19 @@ def configure_source() -> None:
     linux_build = get_linux_build_dir()
     jobs = get_cpu_cores_minus_one()
 
-    run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "defconfig"])
+    run_under_source_dir_checked(
+        [
+            "bear",
+            "--append",
+            "--output",
+            f"{get_linux_src_dir()}/compile_commands.json",
+            "--",
+            "make",
+            f"O={linux_build}",
+            f"-j{jobs}",
+            "defconfig",
+        ]
+    )
 
     for opt_key, opt_value in get_kernel_config_opts().items():
         apply_custom_config(opt_key, opt_value)
@@ -152,7 +175,19 @@ def configure_source() -> None:
         else:
             set_kernel_build_with_rust(False)
 
-    run_under_source_dir_checked(["make", f"O={linux_build}", f"-j{jobs}", "oldconfig"])
+    run_under_source_dir_checked(
+        [
+            "bear",
+            "--append",
+            "--output",
+            f"{get_linux_src_dir()}/compile_commands.json",
+            "--",
+            "make",
+            f"O={linux_build}",
+            f"-j{jobs}",
+            "oldconfig",
+        ]
+    )
 
     KernelMachine.set_state(KernelState.SRC_CONFIGURED)
 
@@ -180,7 +215,10 @@ def build_source() -> None:
             "make",
             f"O={linux_build}",
             f"-j{jobs}",
-        ] + ["LLVM=1", "CC=ccache clang"] if get_kernel_build_with_rust() else ["CC=ccache gcc"],
+        ]
+        + ["LLVM=1", "CC=ccache clang"]
+        if get_kernel_build_with_rust()
+        else ["CC=ccache gcc"],
         env=env,
         cwd=linux_src,
         check=True,
