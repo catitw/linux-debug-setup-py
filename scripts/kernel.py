@@ -215,10 +215,13 @@ def build_source() -> None:
             "make",
             f"O={linux_build}",
             f"-j{jobs}",
+            "LD=ld.lld",
         ]
-        + ["LLVM=1", "CC=ccache clang"]
-        if get_kernel_build_with_rust()
-        else ["CC=ccache gcc"],
+        + (
+            ["LLVM=1", "CC=ccache clang"]
+            if get_kernel_build_with_rust()
+            else ["CC=ccache gcc"]
+        ),
         env=env,
         cwd=linux_src,
         check=True,
