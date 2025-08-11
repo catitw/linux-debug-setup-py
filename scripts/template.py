@@ -39,43 +39,17 @@ def gen_vscode_launch_json() -> None:
   "version": "0.2.0",
   "configurations": [
     {{
-      "name": "(gdb) linux",
-      "type": "cppdbg",
+      "type": "lldb",
       "request": "launch",
-      "program": "{vmlinux}",
-      "miDebuggerServerAddress": "localhost:1234",
-      "args": [],
-      "stopAtEntry": true,
-      "cwd": "{workspaceFolder}",
-      "environment": [],
-      "externalConsole": false,
-      "MIMode": "gdb",
-      "miDebuggerArgs": "-n",
-      "targetArchitecture": "x64",
-      "setupCommands": [
-        {{
-          "text": "set arch i386:x86-64:intel",
-          "ignoreFailures": false
-        }},
-        {{
-          "text": "dir .",
-          "ignoreFailures": false
-        }},
-        {{
-          "text": "add-auto-load-safe-path ./",
-          "ignoreFailures": false
-        }},
-        {{
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
-        }}
+      "name": "vmlinux (lldb)",
+      "targetCreateCommands": [
+        "target create {vmlinux}"
       ],
-
-      // https://code.visualstudio.com/docs/cpp/launch-json-reference#_hardwarebreakpoints
-      "hardwareBreakpoints": {{
-        "require": {hardwareBreakpointsEnabled},
-      }}
-    }}
+      "processCreateCommands": [
+        "gdb-remote 1234"
+      ],
+      "cwd": "{workspaceFolder}",
+    }},
   ]
 }}
 """
@@ -86,9 +60,6 @@ def gen_vscode_launch_json() -> None:
             template.format(
                 vmlinux=get_vmlinux_path(),
                 workspaceFolder=get_linux_src_dir(),
-                hardwareBreakpointsEnabled="true"
-                if get_qemu_kvm_support()
-                else "false",
             )
         )
 
@@ -155,7 +126,7 @@ def uefi_boot_mode_args() -> list[str]:
     ]
 
 
-def build_common_section() -> str:
+def build_common_section(debug: bool) -> str:
     format_str = "qcow2" if get_rootfs_format() == QemuImgFormat.QCOW2 else "raw"
     tcp_port_foward_conf = get_qemu_tcp_port_forward()
     boot_mode = get_qemu_boot_mode()
@@ -197,16 +168,24 @@ def build_common_section() -> str:
 
     port_forward_str = (
         f"    -net nic \\\n"  # create network interface
-        f"    -net user{","+ hostfwd_str if hostfwd_str != "" else ""} \\\n"
+        f"    -net user{',' + hostfwd_str if hostfwd_str != '' else ''} \\\n"
     )
 
-    return base + kvm + boot_mode + port_forward_str
+    return (
+        base
+        + (
+            # never start qemu with kvm support for debugging
+            "" if debug else kvm
+        )
+        + boot_mode
+        + port_forward_str
+    )
 
 
 def gen_run_qemu_sh() -> None:
     sh_path = get_run_qemu_sh_path()
     with open(sh_path, "w", encoding="utf-8") as file:
-        file.write(build_common_section() + RUN_QEMU_END)
+        file.write(build_common_section(False) + RUN_QEMU_END)
 
     ensure_exectuable(sh_path)
 
@@ -214,6 +193,6 @@ def gen_run_qemu_sh() -> None:
 def gen_run_qemu_debug_sh() -> None:
     sh_path = get_run_qemu_sh_debug_path()
     with open(sh_path, "w", encoding="utf-8") as file:
-        file.write(build_common_section() + RUN_QEMU_DEBUG_END)
+        file.write(build_common_section(True) + RUN_QEMU_DEBUG_END)
 
     ensure_exectuable(sh_path)
