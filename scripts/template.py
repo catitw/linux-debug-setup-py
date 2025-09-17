@@ -66,7 +66,7 @@ def gen_vscode_launch_json() -> None:
 
 
 QEMU_TEMPLATE_BASE = r"""
-#!/bin/bash
+#!/usr/bin/env bash
 qemu-system-x86_64 \
     -smp {smp} \
     -m {memory_gb}G \

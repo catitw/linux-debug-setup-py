@@ -186,7 +186,7 @@ def start_qemu():
         qemu_command += uefi_boot_mode_args()
 
     child = pexpect.spawn(
-        " ".join(qemu_command), encoding="utf-8", echo=False, use_poll=True
+        " ".join(qemu_command), encoding="utf-8", echo=False, use_poll=False
     )
     child.logfile_read = sys.stdout
 
@@ -288,7 +288,7 @@ def install_base_system(child):
         run_command(
             child,
             SHELL_PROMPT_RE,
-            "sed -i '1i Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist",
+            "sed -i '1i Server = https://mirrors.nju.edu.cn/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist",
         )
 
         run_command(child, SHELL_PROMPT_RE, "head -n 2 /etc/pacman.d/mirrorlist")
