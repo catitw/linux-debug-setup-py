@@ -18,7 +18,9 @@ format = "ext4"
 mount_point = "/"
 
 [qemu]
+# read env `OVMF_CODE_4M` first, then toml config
 ovmf_code_fd_path = "/usr/share/edk2/x64/OVMF_CODE.4m.fd"
+# read env `OVMF_VARS_4M` first, then toml config
 ovmf_vars_fd_path_copy_from = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
 
 boot_mode = "UEFI" # UEFI or BIOS
@@ -45,7 +47,7 @@ memory_gb = 4
 
 
 [kernel]
-build_with_rust = true
+build_with_rust = false
 # kernel_git_repo_url = "https://mirrors.ustc.edu.cn/linux.git"
 kernel_git_repo_url = "git@github.com:catitw/linux.git"
 

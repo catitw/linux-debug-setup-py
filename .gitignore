@@ -5,7 +5,8 @@ __pycache__/
 *$py.class
 
 # Environments
-venv/
+/venv/
+/.venv/
 
 # ruff
 .ruff_cache/

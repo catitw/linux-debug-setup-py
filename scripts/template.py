@@ -1,4 +1,5 @@
 import os
+import stat
 import shutil
 
 from scripts.config import (
@@ -114,7 +115,9 @@ def uefi_boot_mode_args() -> list[str]:
 
     # copy OVMF_VARS
     if boot_mode == QemuBootMode.UEFI:
-        shutil.copy(get_ovmf_vars_fd_path_copy_from(), ovmf_vars_path)
+        shutil.copyfile(get_ovmf_vars_fd_path_copy_from(), ovmf_vars_path)
+        st = os.stat(ovmf_vars_path)
+        os.chmod(ovmf_vars_path, st.st_mode | stat.S_IWUSR)
 
     return [
         "-drive if=pflash,format=raw,readonly=on,file={ovmfCodePath}".format(
@@ -144,7 +147,9 @@ def build_common_section(debug: bool) -> str:
 
     # copy OVMF_VARS
     if boot_mode == QemuBootMode.UEFI:
-        shutil.copy(get_ovmf_vars_fd_path_copy_from(), ovmf_vars_path)
+        shutil.copyfile(get_ovmf_vars_fd_path_copy_from(), ovmf_vars_path)
+        st = os.stat(ovmf_vars_path)
+        os.chmod(ovmf_vars_path, st.st_mode | stat.S_IWUSR)
 
     boot_mode = (
         ""

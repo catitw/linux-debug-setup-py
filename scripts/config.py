@@ -2,7 +2,7 @@ import os
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Self, Tuple, Optional
+from typing import Any, Tuple, Optional
 
 import toml
 
@@ -13,7 +13,11 @@ cached_other_config = None
 
 
 def parse_config() -> None:
-    global cached_rootfs_config, cached_qemu_config, cached_kernel_config, cached_other_config
+    global \
+        cached_rootfs_config, \
+        cached_qemu_config, \
+        cached_kernel_config, \
+        cached_other_config
 
     # Load and parse the TOML file
     with open(os.path.abspath("config.toml"), "r") as f:
@@ -62,7 +66,7 @@ class RootfsConfig:
     partitions_with_order: list[Tuple[PartitionFormatConfig, int]]
 
     @staticmethod
-    def parse(conf_sec: dict[str, Any]) -> Self:
+    def parse(conf_sec: dict[str, Any]) -> "RootfsConfig":
         # Validate 'format' field with fallback to qcow2 on error
         format_value = conf_sec["format"]
         try:
@@ -109,7 +113,7 @@ class RootfsConfig:
 
         if root_count != 1:
             raise ValueError("There must be exactly one mount point with '/'.")
-
+        
         return RootfsConfig(
             archlinux_iso_url=str(conf_sec["archlinux_iso_url"]),
             archlinux_iso_sha256_url=str(conf_sec["archlinux_iso_sha256_url"]),
@@ -141,6 +145,7 @@ KernelConfigOptValue = KernelConfigOptYNM | KernelConfigOptStr | KernelConfigOpt
 
 class KernelVersionType(Enum):
     """Enum representing different kernel version specification types."""
+
     LATEST = "latest"
     BRANCH = "branch"
     TAG = "tag"
@@ -150,9 +155,10 @@ class KernelVersionType(Enum):
 @dataclass
 class KernelVersionConfig:
     """Configuration for kernel version specification."""
+
     type: KernelVersionType
     value: Optional[str] = None  # None for UNSPECIFIED, string value for others
-    
+
     def get_git_ref(self) -> str:
         """Get the git reference string for fetching."""
         match self.type:
@@ -164,7 +170,7 @@ class KernelVersionConfig:
                 return f"v{self.value}" if self.value else "HEAD"
             case KernelVersionType.COMMIT:
                 return self.value if self.value else "HEAD"
-    
+
     def get_fetch_ref(self) -> str:
         """Get the reference for git fetch command."""
         match self.type:
@@ -186,7 +192,7 @@ class KernelConfig:
     configure_overlay: dict[str, KernelConfigOptValue]
 
     @staticmethod
-    def parse(conf_sec: dict[str, Any]) -> Self:
+    def parse(conf_sec: dict[str, Any]) -> "KernelConfig":
         kernel_configure_overlay = {}
 
         for key, value in conf_sec["configure_overlay"].items():
@@ -210,7 +216,7 @@ class KernelConfig:
             build_with_rust=conf_sec["build_with_rust"],
             configure_overlay=kernel_configure_overlay,
         )
-    
+
     @staticmethod
     def _parse_version_config(conf_sec: dict[str, Any]) -> KernelVersionConfig:
         """Parse kernel version configuration from config section."""
@@ -220,7 +226,7 @@ class KernelConfig:
                 version_type = KernelVersionType(version_conf["type"])
                 version_value = version_conf.get("value")
                 return KernelVersionConfig(type=version_type, value=version_value)
-        
+
         # Default to latest if no version_config found
         return KernelVersionConfig(type=KernelVersionType.LATEST)
 
@@ -247,7 +253,7 @@ class QemuConfig:
     run_kernel: QemuBootConfig
 
     @staticmethod
-    def parse(conf_sec: dict[str, Any]) -> Self:
+    def parse(conf_sec: dict[str, Any]) -> "QemuConfig":
         # Parse `tcp_port_forward` and ensure it's a dictionary with integer keys and values
         tcp_port_forward_section = conf_sec.get("tcp_port_forward", {})
         if not isinstance(tcp_port_forward_section, dict):
@@ -284,7 +290,7 @@ class OtherConfig:
     build_with_ccache: bool
 
     @staticmethod
-    def parse(conf: dict[str, Any]) -> Self:
+    def parse(conf: dict[str, Any]) -> "OtherConfig":
         return OtherConfig(build_with_ccache=bool(conf["build_with_ccache"]))
 
 
@@ -323,7 +329,7 @@ def get_kernel_version_config() -> KernelVersionConfig:
 
 def get_kernel_version() -> str:
     """Get kernel version string for backward compatibility.
-    
+
     Returns the version value if available, otherwise returns 'latest'.
     """
     version_config = get_kernel_version_config()
@@ -359,10 +365,22 @@ def get_kernel_config_opts() -> dict[str, KernelConfigOptValue]:
 
 
 def get_ovmf_code_fd_path() -> str:
+    # First try to get from environment variable
+    env_path = os.environ.get("OVMF_CODE_4M")
+    if env_path:
+        return env_path
+
+    # Fall back to config.toml value
     return cached_qemu_config.ovmf_code_fd_path  #  type: ignore
 
 
 def get_ovmf_vars_fd_path_copy_from() -> str:
+    # First try to get from environment variable
+    env_path = os.environ.get("OVMF_VARS_4M")
+    if env_path:
+        return env_path
+
+    # Fall back to config.toml value
     return cached_qemu_config.ovmf_vars_fd_path_copy_from  # type: ignore
 
 
@@ -396,3 +414,4 @@ def get_qemu_tcp_port_forward() -> dict[int, int]:
 
 def get_build_with_ccache() -> bool:
     return cached_other_config.build_with_ccache
+
