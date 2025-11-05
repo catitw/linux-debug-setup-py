@@ -2,7 +2,7 @@
   description = "A Nix-flake-based Linux-Kernel development environment";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs =
@@ -18,7 +18,7 @@
         in
         # the code here is mainly copied from:
         #   https://wiki.nixos.org/wiki/Linux_kernel#Embedded_Linux_Cross-compile_xconfig_and_menuconfig
-        (pkgs.mkShell {
+        pkgs.mkShell {
           name = "kernel-build-env";
           venvDir = "./.venv";
           buildInputs = with pkgs; [
@@ -50,7 +50,7 @@
               OVMF.fd
               qemu
               qemu-utils
-              
+
               # crypt libraries for archinstall
               cryptsetup
               util-linux
@@ -60,6 +60,10 @@
           shellHook = ''
             venvShellHook
 
+            # fix tmux/zellij bash prompt breaks
+            # see: https://discourse.nixosstag.fcio.net/t/tmux-bash-prompt-breaks-inside-of-flakes/60925/8
+            export SHELL=${pkgs.lib.getExe pkgs.bash}
+
             export LD=ld.lld
             export OVMF_CODE_4M=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd
             export OVMF_VARS_4M=${pkgs.OVMF.fd}/FV/OVMF_VARS.fd
@@ -67,6 +71,6 @@
             echo "[devShell] OVMF_CODE_4M=$OVMF_CODE_4M"
             echo "[devShell] OVMF_VARS_4M=$OVMF_VARS_4M"
           '';
-        });
+        };
     };
 }
