@@ -32,6 +32,9 @@
           packages =
             with pkgs;
             [
+              # fix https://discourse.nixos.org/t/non-interactive-bash-errors-from-flake-nix-mkshell/33310
+              bashInteractive
+
               # we need theses packages to run `make menuconfig` successfully.
               pkg-config
               ncurses
@@ -62,7 +65,7 @@
 
             # fix tmux/zellij bash prompt breaks
             # see: https://discourse.nixosstag.fcio.net/t/tmux-bash-prompt-breaks-inside-of-flakes/60925/8
-            export SHELL=${pkgs.lib.getExe pkgs.bash}
+            export SHELL=${pkgs.lib.getExe pkgs.bashInteractive}
 
             export LD=ld.lld
             export OVMF_CODE_4M=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd
