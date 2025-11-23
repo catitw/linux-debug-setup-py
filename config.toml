@@ -73,6 +73,9 @@ type = "latest"
 # KASLR
 CONFIG_RANDOMIZE_BASE = "N"
 
+# UEFI
+CONFIG_EFI_MIXED = "N" # allows 64-bit kernel to be booted on a 32-bit firmware
+
 # Debugging
 CONFIG_FRAME_POINTER = "Y"
 CONFIG_DEBUG_KERNEL = "Y"
